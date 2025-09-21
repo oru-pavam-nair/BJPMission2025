@@ -23,7 +23,8 @@
     "test:mobile": "vitest run src/tests/mobile*.test.tsx",
     "test:pdf": "vitest run src/tests/*pdf*.test.tsx",
     "bundle-analyzer": "npx vite-bundle-analyzer dist",
-    "size-check": "bundlesize"
+    "size-check": "bundlesize",
+    "setup-domain": "node scripts/setup-domain.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
