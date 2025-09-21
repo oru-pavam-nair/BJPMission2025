@@ -81,45 +81,42 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-500 via-orange-600 to-amber-500 flex flex-col justify-center items-center font-sans relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex flex-col justify-center items-center font-sans relative overflow-hidden">
       {/* Floating Background Elements */}
-      <div className="absolute top-10 left-10 w-20 h-20 bg-white/10 rounded-full animate-pulse"></div>
-      <div className="absolute top-32 right-16 w-16 h-16 bg-white/5 rounded-full animate-bounce"></div>
-      <div className="absolute bottom-20 left-20 w-24 h-24 bg-white/10 rounded-full animate-pulse"></div>
+      <div className="absolute top-10 left-10 w-20 h-20 bg-blue-400/10 rounded-full animate-pulse"></div>
+      <div className="absolute top-32 right-16 w-16 h-16 bg-indigo-400/5 rounded-full animate-bounce"></div>
+      <div className="absolute bottom-20 left-20 w-24 h-24 bg-blue-500/10 rounded-full animate-pulse"></div>
       
       {/* Animated/Blurred Background */}
-      <div className="fixed inset-0 z-0 backdrop-blur-2xl bg-gradient-to-br from-orange-100/30 via-orange-300/20 to-amber-200/30"></div>
+      <div className="fixed inset-0 z-0 backdrop-blur-2xl bg-gradient-to-br from-slate-800/30 via-blue-800/20 to-indigo-800/30"></div>
       
       <div className="relative z-10 w-full max-w-md p-4 sm:p-8 space-y-6 sm:space-y-8">
         {/* Login Card */}
-        <div className="bg-white/10 backdrop-blur-md p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl shadow-2xl transition-transform duration-300 hover:scale-[1.02] border border-white/20">
+        <div className="bg-white/15 backdrop-blur-lg p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl shadow-2xl transition-transform duration-300 hover:scale-[1.02] border border-blue-400/20">
           {/* Header */}
           <div className="text-center mb-6 sm:mb-8">
             <div className="relative inline-block mb-4 sm:mb-6">
-              <div className="p-4 sm:p-6 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl sm:rounded-2xl shadow-2xl mb-3 sm:mb-4">
+              <div className="p-4 sm:p-6 bg-white rounded-xl sm:rounded-2xl shadow-2xl mb-3 sm:mb-4">
                 <img 
-                  src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Bharatiya_Janata_Party_logo.svg/512px-Bharatiya_Janata_Party_logo.svg.png"
+                  src="/bjp-logo.png"
                   alt="BJP Logo" 
-                  className="w-12 h-12 sm:w-16 sm:h-16 mx-auto object-contain"
+                  className="w-36 h-36 sm:w-48 sm:h-48 mx-auto object-contain"
                   onError={(e) => { 
                     const target = e.target as HTMLImageElement;
                     target.onerror = null; 
-                    target.src='https://placehold.co/64x64/FFFFFF/F97316?text=BJP&font=sans'; 
+                    target.src='https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Bharatiya_Janata_Party_logo.svg/512px-Bharatiya_Janata_Party_logo.svg.png'; 
                   }}
                 />
               </div>
               <div className="absolute -top-2 -right-2 sm:-top-3 sm:-right-3 w-6 h-6 sm:w-8 sm:h-8 bg-green-500 rounded-full animate-pulse"></div>
             </div>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent mb-3 sm:mb-4">
-              Kerala Map
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-300 via-blue-200 to-indigo-300 bg-clip-text text-transparent mb-2 sm:mb-3">
+              BJP Keralam
             </h1>
-            <h2 className="text-lg sm:text-xl md:text-2xl font-semibold text-white mb-3 sm:mb-4">
-              Interactive Political Map
+            <h2 className="text-lg sm:text-xl md:text-2xl font-semibold text-blue-200 mb-4 sm:mb-6">
+              Mission 2025
             </h2>
-            <p className="text-gray-200 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed px-2">
-              Access the interactive Kerala political map with comprehensive data visualization
-            </p>
-            <div className="w-24 sm:w-32 h-1 bg-gradient-to-r from-orange-400 to-orange-600 rounded-full mx-auto mt-4 sm:mt-6"></div>
+            <div className="w-24 sm:w-32 h-1 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-full mx-auto mt-4 sm:mt-6"></div>
           </div>
           
           {/* Login Form */}
@@ -127,7 +124,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             <div className="space-y-3 sm:space-y-4">
               {/* Phone Number Field - Mobile Optimized */}
               <div className="relative group">
-                <div className="absolute top-1/2 left-3 sm:left-4 transform -translate-y-1/2 text-gray-400 group-focus-within:text-orange-400 transition-colors duration-300 z-10">
+                <div className="absolute top-1/2 left-3 sm:left-4 transform -translate-y-1/2 text-gray-400 group-focus-within:text-blue-400 transition-colors duration-300 z-10">
                   <Phone size={18} className="sm:w-5 sm:h-5" />
                 </div>
                 <div className="absolute left-10 sm:left-12 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs sm:text-sm font-medium">+91</div>
@@ -144,7 +141,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                     setError(''); // Clear error when user types
                   }}
                   disabled={isLoading}
-                  className="w-full pl-16 sm:pl-20 pr-4 py-3 sm:py-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all duration-300 text-base"
+                  className="w-full pl-16 sm:pl-20 pr-4 py-3 sm:py-4 bg-white/15 backdrop-blur-md border border-blue-400/30 rounded-xl text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300 text-base"
                   aria-label="Phone Number"
                   required
                 />
@@ -152,7 +149,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
               {/* Password Field - Mobile Optimized */}
               <div className="relative group">
-                <div className="absolute top-1/2 left-3 sm:left-4 transform -translate-y-1/2 text-gray-400 group-focus-within:text-orange-400 transition-colors duration-300 z-10">
+                <div className="absolute top-1/2 left-3 sm:left-4 transform -translate-y-1/2 text-gray-400 group-focus-within:text-blue-400 transition-colors duration-300 z-10">
                   <Lock size={18} className="sm:w-5 sm:h-5" />
                 </div>
                 <input
@@ -165,14 +162,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                   }}
                   onKeyPress={handlePasswordKeyPress}
                   disabled={isLoading}
-                  className="w-full pl-10 sm:pl-12 pr-12 py-3 sm:py-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all duration-300 text-base"
+                  className="w-full pl-10 sm:pl-12 pr-12 py-3 sm:py-4 bg-white/15 backdrop-blur-md border border-blue-400/30 rounded-xl text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300 text-base"
                   aria-label="Password"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-orange-400 transition-colors duration-300"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-blue-400 transition-colors duration-300"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOff size={18} className="sm:w-5 sm:h-5" /> : <Eye size={18} className="sm:w-5 sm:h-5" />}
@@ -183,7 +180,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               <div className="flex justify-between items-center">
                 <button
                   type="button"
-                  className="text-xs text-orange-300 hover:underline focus:outline-none"
+                  className="text-xs text-blue-300 hover:underline focus:outline-none"
                   tabIndex={0}
                   onClick={() => alert('Please contact your admin to reset your password.')}
                 >
@@ -197,8 +194,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 disabled={isLoading || !phoneNumber || !password}
                 className={`w-full py-3 sm:py-4 px-6 rounded-xl font-medium text-white transition-all duration-300 ${
                   isLoading || !phoneNumber || !password
-                    ? 'bg-orange-400/50 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-lg hover:shadow-orange-500/30 transform hover:scale-105'
+                    ? 'bg-blue-500/50 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-blue-500/30 transform hover:scale-105'
                 }`}
               >
                 {isLoading ? (
@@ -226,7 +223,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             )}
           </form>
           {/* Footer */}
-          <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-white/20">
+          <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-blue-400/20">
             <p className="text-xs text-gray-300 text-center mt-3 sm:mt-4 px-2">
               For authorized use only. 2025 BJP Kerala. All rights reserved.
             </p>
@@ -234,7 +231,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         </div>
       </div>
       {/* Responsive mobile hint */}
-      <div className="fixed bottom-2 left-1/2 -translate-x-1/2 z-20 sm:hidden text-xs text-gray-200 bg-white/20 px-3 py-1 rounded-full shadow-md backdrop-blur-md">
+      <div className="fixed bottom-2 left-1/2 -translate-x-1/2 z-20 sm:hidden text-xs text-gray-200 bg-blue-800/30 px-3 py-1 rounded-full shadow-md backdrop-blur-md">
         Best viewed in portrait mode
       </div>
     </div>
