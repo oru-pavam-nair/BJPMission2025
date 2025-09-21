@@ -3,6 +3,10 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import './styles/index.css';
 import { env, logEnvironmentInfo, validateEnvironment } from './utils/env';
+import { setupConsoleManagement } from './utils/environment';
+
+// Setup console management for cleaner production builds
+setupConsoleManagement();
 
 // Log environment information and validate configuration
 try {

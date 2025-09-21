@@ -63,15 +63,7 @@ export async function loadMandalVoteShareData(): Promise<MandalVoteShareData> {
         const target2025VS = columns[9]?.trim(); // Column 9 has Target 2025 VS
         const target2025Votes = columns[10]?.trim().replace(/["\r\n]/g, ''); // Column 10 has Target 2025 Votes
 
-        // Debug logging for specific ACs 
-        if (ac && (ac.toLowerCase().includes('kazhakkoottam') || ac.toLowerCase().includes('nemom'))) {
-          console.log(`🔍 Processing ${ac} data at line`, index + 3, ':', {
-            zone, orgDistrict, ac, orgMandal,
-            lsg2020VS, lsg2020Votes, ge2024VS, ge2024Votes, target2025VS, target2025Votes
-          });
-          console.log(`🔍 Raw CSV line: "${line}"`);
-          console.log(`🔍 Columns array:`, columns.map((col, idx) => `[${idx}]: "${col}"`));
-        }
+
 
         if (zone && orgDistrict && ac && orgMandal) {
           // Initialize zone if not exists
@@ -107,10 +99,7 @@ export async function loadMandalVoteShareData(): Promise<MandalVoteShareData> {
             }
           };
           
-          // Debug logging for specific entries
-          if (ac && (ac.toLowerCase().includes('kazhakkoottam') || ac.toLowerCase().includes('nemom'))) {
-            console.log(`🔍 Created mandal entry for ${orgMandal}:`, mandalEntry);
-          }
+
           
           data[zone][orgDistrict][ac].push(mandalEntry);
         }
@@ -126,74 +115,14 @@ export async function loadMandalVoteShareData(): Promise<MandalVoteShareData> {
 }
 
 export function getMandalVoteShareData(ac: string, orgDistrict: string, zone: string): any[] {
-  console.log('🔧 getMandalVoteShareData called with:', { ac, orgDistrict, zone });
-  
   // Normalize names to handle spelling variations
   const normalizedAC = normalizeACName(ac);
   const normalizedOrg = normalizeOrgDistrictName(orgDistrict);
   const normalizedZone = normalizeZoneName(zone);
   
-  console.log('🔧 After normalization:', { 
-    ac: normalizedAC, 
-    orgDistrict: normalizedOrg, 
-    zone: normalizedZone 
-  });
-  
   if (!mandalVoteShareDataCache) {
-    console.log('🚨 Mandal vote share data cache not loaded');
     return [];
   }
   
-  console.log('📊 Cache structure:', Object.keys(mandalVoteShareDataCache));
-  
-  // Show Thiruvananthapuram structure for debugging
-  if (mandalVoteShareDataCache['Thiruvananthapuram']) {
-    console.log('📍 Thiruvananthapuram org districts:', Object.keys(mandalVoteShareDataCache['Thiruvananthapuram']));
-    if (mandalVoteShareDataCache['Thiruvananthapuram']['Thiruvananthapuram City']) {
-      console.log('🏛️ Thiruvananthapuram City ACs:', Object.keys(mandalVoteShareDataCache['Thiruvananthapuram']['Thiruvananthapuram City']));
-    }
-  }
-  
-  // Debug logging for troubleshooting - use normalized names
-  if (normalizedAC === 'Kazhakkoottam') {
-    console.log('🔍 Looking for Kazhakkoottam data:', { zone: normalizedZone, orgDistrict: normalizedOrg, ac: normalizedAC });
-    console.log('🔍 Available zones:', Object.keys(mandalVoteShareDataCache));
-    
-    if (mandalVoteShareDataCache[normalizedZone]) {
-      console.log('🔍 Available org districts:', Object.keys(mandalVoteShareDataCache[normalizedZone]));
-      
-      if (mandalVoteShareDataCache[normalizedZone][normalizedOrg]) {
-        console.log('🔍 Available ACs:', Object.keys(mandalVoteShareDataCache[normalizedZone][normalizedOrg]));
-        
-        if (mandalVoteShareDataCache[normalizedZone][normalizedOrg][normalizedAC]) {
-          console.log('✅ Found Kazhakkoottam data:', mandalVoteShareDataCache[normalizedZone][normalizedOrg][normalizedAC]);
-        } else {
-          console.log('❌ AC not found in org district');
-        }
-      } else {
-        console.log('❌ Org district not found in zone');
-      }
-    } else {
-      console.log('❌ Zone not found in cache');
-    }
-  }
-  
-  const result = mandalVoteShareDataCache[normalizedZone]?.[normalizedOrg]?.[normalizedAC] || [];
-  console.log('📤 Returning data for', { ac: normalizedAC, orgDistrict: normalizedOrg, zone: normalizedZone }, ':', result.length, 'items');
-  
-  // Debug log the actual data structure being returned
-  if (normalizedAC.toLowerCase().includes('nemom') || normalizedAC.toLowerCase().includes('kazhakkoottam')) {
-    console.log('📤 Detailed data being returned:', result);
-    
-    // Log the structure of each mandal entry
-    result.forEach((mandal, index) => {
-      console.log(`🏛️ Mandal ${index + 1}: ${mandal.name}`);
-      console.log(`   📊 LSG 2020 - VS: ${mandal.lsg2020?.vs}, Votes: ${mandal.lsg2020?.votes}`);
-      console.log(`   📊 GE 2024 - VS: ${mandal.ge2024?.vs}, Votes: ${mandal.ge2024?.votes}`);
-      console.log(`   🎯 Target 2025 - VS: ${mandal.target2025?.vs}, Votes: ${mandal.target2025?.votes}`);
-      console.log(`   📊 Full mandal object:`, mandal);
-    });
-  }
-  
-  return result;
+  return mandalVoteShareDataCache[normalizedZone]?.[normalizedOrg]?.[normalizedAC] || [];
 }

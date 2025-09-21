@@ -85,7 +85,7 @@ export async function loadMandalContactData(): Promise<MandalContactData> {
     });
     
     mandalContactDataCache = data;
-    console.log(`Loaded mandal contact data for ${Object.keys(data).length} zones`);
+
     return data;
   } catch (error) {
     console.error('Error loading mandal contact data:', error);

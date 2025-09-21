@@ -47,7 +47,7 @@ export async function loadLocalBodyVoteShareData(): Promise<LocalBodyVoteShareDa
     
     const csvText = await response.text();
     const lines = csvText.split('\n');
-    console.log('Local Body CSV loaded, total lines:', lines.length);
+
     
     // Skip header lines (first 2 lines)
     const dataLines = lines.slice(2).filter(line => line.trim());
@@ -112,12 +112,7 @@ export async function loadLocalBodyVoteShareData(): Promise<LocalBodyVoteShareDa
       }
     });
 
-    console.log('Local Body data processed, total zones:', Object.keys(data).length);
-    console.log('Sample data structure:', Object.keys(data).slice(0, 2).map(zone => ({
-      zone,
-      orgDistricts: Object.keys(data[zone]).length,
-      sampleOrgDistrict: Object.keys(data[zone])[0]
-    })));
+
 
     localBodyVoteShareDataCache = data;
     return data;
@@ -129,7 +124,6 @@ export async function loadLocalBodyVoteShareData(): Promise<LocalBodyVoteShareDa
 
 export function getLocalBodyVoteShareData(mandal: string, ac: string, orgDistrict: string, zone: string): any[] {
   if (!localBodyVoteShareDataCache) {
-    console.log('Local Body cache not loaded yet');
     return [];
   }
   
@@ -138,13 +132,5 @@ export function getLocalBodyVoteShareData(mandal: string, ac: string, orgDistric
   const normalizedOrg = normalizeOrgDistrictName(orgDistrict);
   const normalizedZone = normalizeZoneName(zone);
   
-  console.log('🏡 Getting Local Body data with normalization:', { 
-    original: { mandal, ac, orgDistrict, zone },
-    normalized: { mandal, ac: normalizedAC, orgDistrict: normalizedOrg, zone: normalizedZone }
-  });
-  
-  const result = localBodyVoteShareDataCache[normalizedZone]?.[normalizedOrg]?.[normalizedAC]?.[mandal] || [];
-  console.log(`Getting Local Body data for: ${normalizedZone} > ${normalizedOrg} > ${normalizedAC} > ${mandal}`, result.length, 'items');
-  
-  return result;
+  return localBodyVoteShareDataCache[normalizedZone]?.[normalizedOrg]?.[normalizedAC]?.[mandal] || [];
 }

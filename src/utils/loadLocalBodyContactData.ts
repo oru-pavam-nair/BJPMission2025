@@ -76,7 +76,6 @@ export async function loadLocalBodyContactData(): Promise<LocalBodyContactData> 
       
       // Validate minimum column count
       if (columns.length < 12) {
-        console.warn(`Row ${index + 2}: Insufficient columns (${columns.length}), skipping`);
         skippedRows++;
         return;
       }
@@ -98,7 +97,6 @@ export async function loadLocalBodyContactData(): Promise<LocalBodyContactData> 
       
       // Validate required fields
       if (!validateRequiredFields(zone, orgDistrict, ac, mandal, localBodyName)) {
-        console.warn(`Row ${index + 2}: Missing required fields, skipping. Zone: ${zone}, Org District: ${orgDistrict}, AC: ${ac}, Mandal: ${mandal}, Local Body: ${localBodyName}`);
         skippedRows++;
         return;
       }
@@ -148,7 +146,10 @@ export async function loadLocalBodyContactData(): Promise<LocalBodyContactData> 
       processedRows++;
     });
     
-    console.log(`Local body contact data loaded: ${processedRows} rows processed, ${skippedRows} rows skipped`);
+    // Only log if there are significant issues
+    if (skippedRows > processedRows * 0.1) {
+      console.warn(`Local body contact data: ${processedRows} rows processed, ${skippedRows} rows skipped`);
+    }
     
     localBodyContactDataCache = data;
     return data;

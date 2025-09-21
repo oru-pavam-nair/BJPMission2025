@@ -13,6 +13,17 @@ import { loadLocalBodyContactData, getLocalBodyContactData } from '../utils/load
 import { loadZoneTargetData, getZoneTargetData } from '../utils/loadZoneTargetData';
 import { useMobileDetection, optimizeTouchInteractions } from '../utils/mobileDetection';
 import { generateMapPDF, generateMapPDFMobile } from '../utils/mapPdfExporter';
+
+// Type definition for map context to ensure consistency
+type MapContextLevel = 'zones' | 'orgs' | 'acs' | 'mandals' | 'panchayats' | 'wards';
+
+interface MapContext {
+  level: MapContextLevel;
+  zone: string;
+  org: string;
+  ac: string;
+  mandal: string;
+}
 import ControlPanel from './layout/ControlPanel';
 import MapControls from './layout/MapControls';
 import { PerformanceModal, TargetModal, LeadershipModal } from './ui';
@@ -34,12 +45,18 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
   const [showPerformanceModal, setShowPerformanceModal] = useState(false);
   const [showTargetModal, setShowTargetModal] = useState(false);
   const [showLeadershipModal, setShowLeadershipModal] = useState(false);
-  
+
   // Modal loading states
   const performanceLoading = useLoadingState('performance-modal-data');
   const targetLoading = useLoadingState('target-modal-data');
   const leadershipLoading = useLoadingState('leadership-modal-data');
-  const [currentMapContext, setCurrentMapContext] = useState({ level: 'zones', zone: '', org: '', ac: '', mandal: '' });
+  const [currentMapContext, setCurrentMapContext] = useState<MapContext>({
+    level: 'zones',
+    zone: '',
+    org: '',
+    ac: '',
+    mandal: ''
+  });
   const [selectedOrgDistrict, setSelectedOrgDistrict] = useState<string | null>(null);
   const [selectedAC, setSelectedAC] = useState<string | null>(null);
   const [acData, setAcData] = useState<ACData>({});
@@ -47,10 +64,10 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
   const [orgDistrictContacts, setOrgDistrictContacts] = useState<any[]>([]);
   const [isControlPanelCollapsed, setIsControlPanelCollapsed] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  
+
   // Mobile detection hook
   const mobileInfo = useMobileDetection();
-  
+
   // Enhanced data loader
   const dataLoader = useEnhancedDataLoader();
 
@@ -90,38 +107,38 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
       { name: "Kollam West", lsg2020: { vs: "19.47%", votes: "173,864" }, ge2024: { vs: "21.46%", votes: "160,628" }, target2025: { vs: "29.91%", votes: "313,357" } },
       { name: "Pathanamthitta", lsg2020: { vs: "17.51%", votes: "135,289" }, ge2024: { vs: "26.01%", votes: "173,722" }, target2025: { vs: "31.88%", votes: "320,214" } }
     ],
-      "Alappuzha": [
-        { name: "Alappuzha South", lsg2020: { vs: "21.98%", votes: "136,610" }, ge2024: { vs: "26.87%", votes: "145,702" }, target2025: { vs: "36.17%", votes: "272,437" } },
-        { name: "Alappuzha North", lsg2020: { vs: "16.29%", votes: "124,546" }, ge2024: { vs: "22.08%", votes: "162,420" }, target2025: { vs: "26.03%", votes: "239,812" } },
-        { name: "Kottayam East", lsg2020: { vs: "13.24%", votes: "74,741" }, ge2024: { vs: "20.83%", votes: "96,280" }, target2025: { vs: "28.15%", votes: "190,728" } },
-        { name: "Kottayam West", lsg2020: { vs: "11.90%", votes: "86,106" }, ge2024: { vs: "20.35%", votes: "107,817" }, target2025: { vs: "25.17%", votes: "216,815" } },
-        { name: "Idukki South", lsg2020: { vs: "6.44%", votes: "25,441" }, ge2024: { vs: "11.36%", votes: "40,171" }, target2025: { vs: "16.35%", votes: "84,608" } },
-        { name: "Idukki North", lsg2020: { vs: "7.36%", votes: "18,144" }, ge2024: { vs: "9.71%", votes: "9,220" }, target2025: { vs: "20.16%", votes: "66,716" } }
-      ],
-      "Ernakulam": [
-        { name: "Ernakulam East", lsg2020: { vs: "5.53%", votes: "34,951" }, ge2024: { vs: "10.60%", votes: "52,944" }, target2025: { vs: "12.17%", votes: "81,669" } },
-        { name: "Ernakulam City", lsg2020: { vs: "10.94%", votes: "72,699" }, ge2024: { vs: "13.78%", votes: "101,543" }, target2025: { vs: "20.87%", votes: "167,969" } },
-        { name: "Ernakulam North", lsg2020: { vs: "10.16%", votes: "81,964" }, ge2024: { vs: "12.29%", votes: "85,125" }, target2025: { vs: "16.45%", votes: "150,360" } },
-        { name: "Thrissur South", lsg2020: { vs: "17.99%", votes: "112,776" }, ge2024: { vs: "20.44%", votes: "109,847" }, target2025: { vs: "28.21%", votes: "208,552" } },
-        { name: "Thrissur City", lsg2020: { vs: "21.92%", votes: "161,667" }, ge2024: { vs: "39.32%", votes: "286,870" }, target2025: { vs: "40.47%", votes: "391,903" } },
-        { name: "Thrissur North", lsg2020: { vs: "17.30%", votes: "113,938" }, ge2024: { vs: "22.04%", votes: "137,984" }, target2025: { vs: "27.25%", votes: "230,808" } }
-      ],
-      "Palakkad": [
-        { name: "Palakkad East", lsg2020: { vs: "16.51%", votes: "163,576" }, ge2024: { vs: "22.23%", votes: "210,277" }, target2025: { vs: "26.84%", votes: "310,467" } },
-        { name: "Palakkad West", lsg2020: { vs: "14.36%", votes: "133,798" }, ge2024: { vs: "20.10%", votes: "170,384" }, target2025: { vs: "23.13%", votes: "256,846" } },
-        { name: "Malappuram West", lsg2020: { vs: "7.49%", votes: "74,736" }, ge2024: { vs: "11.68%", votes: "111,236" }, target2025: { vs: "15.26%", votes: "189,004" } },
-        { name: "Malappuram Central", lsg2020: { vs: "3.53%", votes: "29,168" }, ge2024: { vs: "7.17%", votes: "53,790" }, target2025: { vs: "8.33%", votes: "84,349" } },
-        { name: "Malappuram East", lsg2020: { vs: "3.09%", votes: "27,164" }, ge2024: { vs: "8.02%", votes: "63,900" }, target2025: { vs: "9.02%", votes: "93,699" } },
-        { name: "Wayanad", lsg2020: { vs: "11.17%", votes: "57,249" }, ge2024: { vs: "18.13%", votes: "80,596" }, target2025: { vs: "21.15%", votes: "128,618" } }
-      ],
-      "Kozhikode": [
-        { name: "Kozhikode City", lsg2020: { vs: "14.72%", votes: "42,552" }, ge2024: { vs: "16.29%", votes: "45,214" }, target2025: { vs: "19.32%", votes: "64,826" } },
-        { name: "Kozhikode Rural", lsg2020: { vs: "8.59%", votes: "124,871" }, ge2024: { vs: "12.38%", votes: "148,580" }, target2025: { vs: "14.72%", votes: "207,136" } },
-        { name: "Kozhikode North", lsg2020: { vs: "8.81%", votes: "75,535" }, ge2024: { vs: "8.33%", votes: "70,484" }, target2025: { vs: "10.81%", votes: "106,744" } },
-        { name: "Kannur South", lsg2020: { vs: "11.27%", votes: "88,735" }, ge2024: { vs: "11.18%", votes: "79,656" }, target2025: { vs: "14.83%", votes: "131,628" } },
-        { name: "Kannur North", lsg2020: { vs: "5.70%", votes: "58,143" }, ge2024: { vs: "10.97%", votes: "109,340" }, target2025: { vs: "11.99%", votes: "137,412" } },
-        { name: "Kasaragod", lsg2020: { vs: "17.24%", votes: "136,808" }, ge2024: { vs: "23.38%", votes: "181,524" }, target2025: { vs: "26.44%", votes: "257,860" } }
-      ]
+    "Alappuzha": [
+      { name: "Alappuzha South", lsg2020: { vs: "21.98%", votes: "136,610" }, ge2024: { vs: "26.87%", votes: "145,702" }, target2025: { vs: "36.17%", votes: "272,437" } },
+      { name: "Alappuzha North", lsg2020: { vs: "16.29%", votes: "124,546" }, ge2024: { vs: "22.08%", votes: "162,420" }, target2025: { vs: "26.03%", votes: "239,812" } },
+      { name: "Kottayam East", lsg2020: { vs: "13.24%", votes: "74,741" }, ge2024: { vs: "20.83%", votes: "96,280" }, target2025: { vs: "28.15%", votes: "190,728" } },
+      { name: "Kottayam West", lsg2020: { vs: "11.90%", votes: "86,106" }, ge2024: { vs: "20.35%", votes: "107,817" }, target2025: { vs: "25.17%", votes: "216,815" } },
+      { name: "Idukki South", lsg2020: { vs: "6.44%", votes: "25,441" }, ge2024: { vs: "11.36%", votes: "40,171" }, target2025: { vs: "16.35%", votes: "84,608" } },
+      { name: "Idukki North", lsg2020: { vs: "7.36%", votes: "18,144" }, ge2024: { vs: "9.71%", votes: "9,220" }, target2025: { vs: "20.16%", votes: "66,716" } }
+    ],
+    "Ernakulam": [
+      { name: "Ernakulam East", lsg2020: { vs: "5.53%", votes: "34,951" }, ge2024: { vs: "10.60%", votes: "52,944" }, target2025: { vs: "12.17%", votes: "81,669" } },
+      { name: "Ernakulam City", lsg2020: { vs: "10.94%", votes: "72,699" }, ge2024: { vs: "13.78%", votes: "101,543" }, target2025: { vs: "20.87%", votes: "167,969" } },
+      { name: "Ernakulam North", lsg2020: { vs: "10.16%", votes: "81,964" }, ge2024: { vs: "12.29%", votes: "85,125" }, target2025: { vs: "16.45%", votes: "150,360" } },
+      { name: "Thrissur South", lsg2020: { vs: "17.99%", votes: "112,776" }, ge2024: { vs: "20.44%", votes: "109,847" }, target2025: { vs: "28.21%", votes: "208,552" } },
+      { name: "Thrissur City", lsg2020: { vs: "21.92%", votes: "161,667" }, ge2024: { vs: "39.32%", votes: "286,870" }, target2025: { vs: "40.47%", votes: "391,903" } },
+      { name: "Thrissur North", lsg2020: { vs: "17.30%", votes: "113,938" }, ge2024: { vs: "22.04%", votes: "137,984" }, target2025: { vs: "27.25%", votes: "230,808" } }
+    ],
+    "Palakkad": [
+      { name: "Palakkad East", lsg2020: { vs: "16.51%", votes: "163,576" }, ge2024: { vs: "22.23%", votes: "210,277" }, target2025: { vs: "26.84%", votes: "310,467" } },
+      { name: "Palakkad West", lsg2020: { vs: "14.36%", votes: "133,798" }, ge2024: { vs: "20.10%", votes: "170,384" }, target2025: { vs: "23.13%", votes: "256,846" } },
+      { name: "Malappuram West", lsg2020: { vs: "7.49%", votes: "74,736" }, ge2024: { vs: "11.68%", votes: "111,236" }, target2025: { vs: "15.26%", votes: "189,004" } },
+      { name: "Malappuram Central", lsg2020: { vs: "3.53%", votes: "29,168" }, ge2024: { vs: "7.17%", votes: "53,790" }, target2025: { vs: "8.33%", votes: "84,349" } },
+      { name: "Malappuram East", lsg2020: { vs: "3.09%", votes: "27,164" }, ge2024: { vs: "8.02%", votes: "63,900" }, target2025: { vs: "9.02%", votes: "93,699" } },
+      { name: "Wayanad", lsg2020: { vs: "11.17%", votes: "57,249" }, ge2024: { vs: "18.13%", votes: "80,596" }, target2025: { vs: "21.15%", votes: "128,618" } }
+    ],
+    "Kozhikode": [
+      { name: "Kozhikode City", lsg2020: { vs: "14.72%", votes: "42,552" }, ge2024: { vs: "16.29%", votes: "45,214" }, target2025: { vs: "19.32%", votes: "64,826" } },
+      { name: "Kozhikode Rural", lsg2020: { vs: "8.59%", votes: "124,871" }, ge2024: { vs: "12.38%", votes: "148,580" }, target2025: { vs: "14.72%", votes: "207,136" } },
+      { name: "Kozhikode North", lsg2020: { vs: "8.81%", votes: "75,535" }, ge2024: { vs: "8.33%", votes: "70,484" }, target2025: { vs: "10.81%", votes: "106,744" } },
+      { name: "Kannur South", lsg2020: { vs: "11.27%", votes: "88,735" }, ge2024: { vs: "11.18%", votes: "79,656" }, target2025: { vs: "14.83%", votes: "131,628" } },
+      { name: "Kannur North", lsg2020: { vs: "5.70%", votes: "58,143" }, ge2024: { vs: "10.97%", votes: "109,340" }, target2025: { vs: "11.99%", votes: "137,412" } },
+      { name: "Kasaragod", lsg2020: { vs: "17.24%", votes: "136,808" }, ge2024: { vs: "23.38%", votes: "181,524" }, target2025: { vs: "26.44%", votes: "257,860" } }
+    ]
   };
 
   // Target data for different zones
@@ -328,8 +345,6 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
 
   // Function to get performance data based on current context
   const getPerformanceData = () => {
-    console.log('🎯 getPerformanceData called with context:', currentMapContext);
-    
     if (currentMapContext.level === 'zones') {
       // Show zone-level data (summary data for each zone)
       return [
@@ -343,47 +358,22 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
       // Show org district data for the current zone at the zone level, OR AC data for a specific org
       if (currentMapContext.org) {
         // We're drilling down into a specific org district - show AC-level data
-        console.log('�️ AC level - getting data for:', { org: currentMapContext.org, zone: currentMapContext.zone });
-        const acData = getACVoteShareData(currentMapContext.org, currentMapContext.zone);
-        console.log('🏛️ AC data returned:', acData);
-        return acData;
+        return getACVoteShareData(currentMapContext.org, currentMapContext.zone);
       } else {
         // We're at zone level showing org districts
-        console.log('�🏢 Org level - looking for zone:', currentMapContext.zone);
         return zonePerformanceData[currentMapContext.zone as keyof typeof zonePerformanceData] || [];
       }
     } else if (currentMapContext.level === 'acs' && currentMapContext.org && currentMapContext.zone) {
       // Show AC-level vote share data for the current org district
-      console.log('🏛️ AC level - getting data for:', { org: currentMapContext.org, zone: currentMapContext.zone });
-      const acData = getACVoteShareData(currentMapContext.org, currentMapContext.zone);
-      console.log('🏛️ AC data returned:', acData);
-      return acData;
+      return getACVoteShareData(currentMapContext.org, currentMapContext.zone);
     } else if (currentMapContext.level === 'mandals' && currentMapContext.ac && currentMapContext.org && currentMapContext.zone) {
       // Show Mandal-level vote share data for the current AC
-      console.log('🏘️ Mandal level - getting data for:', { 
-        ac: currentMapContext.ac, 
-        org: currentMapContext.org, 
-        zone: currentMapContext.zone 
-      });
-      console.log('🏘️ Full context object:', JSON.stringify(currentMapContext, null, 2));
-      const mandalData = getMandalVoteShareData(currentMapContext.ac, currentMapContext.org, currentMapContext.zone);
-      console.log('🏘️ Mandal data returned:', mandalData);
-      console.log('🏘️ Mandal data length:', mandalData.length);
-      return mandalData;
+      return getMandalVoteShareData(currentMapContext.ac, currentMapContext.org, currentMapContext.zone);
     } else if ((currentMapContext.level === 'panchayats' || currentMapContext.level === 'wards') && currentMapContext.mandal && currentMapContext.ac && currentMapContext.org && currentMapContext.zone) {
       // Show Local Body vote share data for the current Mandal
-      console.log('🏡 Local Body level - getting data for:', { 
-        mandal: currentMapContext.mandal,
-        ac: currentMapContext.ac, 
-        org: currentMapContext.org, 
-        zone: currentMapContext.zone 
-      });
-      const localBodyData = getLocalBodyVoteShareData(currentMapContext.mandal, currentMapContext.ac, currentMapContext.org, currentMapContext.zone);
-      console.log('🏡 Local Body data returned:', localBodyData);
-      return localBodyData;
+      return getLocalBodyVoteShareData(currentMapContext.mandal, currentMapContext.ac, currentMapContext.org, currentMapContext.zone);
     }
-    
-    console.log('❌ No matching condition for context:', currentMapContext);
+
     return [];
   };
 
@@ -416,11 +406,11 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
       totals.panchayat.total += zoneData.panchayat.total;
       totals.panchayat.targetWin += zoneData.panchayat.targetWin;
       totals.panchayat.targetOpposition += zoneData.panchayat.targetOpposition;
-      
+
       totals.municipality.total += zoneData.municipality.total;
       totals.municipality.targetWin += zoneData.municipality.targetWin;
       totals.municipality.targetOpposition += zoneData.municipality.targetOpposition;
-      
+
       totals.corporation.total += zoneData.corporation.total;
       totals.corporation.targetWin += zoneData.corporation.targetWin;
       totals.corporation.targetOpposition += zoneData.corporation.targetOpposition;
@@ -450,11 +440,11 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
       totals.panchayat.total += orgData.panchayat.total;
       totals.panchayat.targetWin += orgData.panchayat.targetWin;
       totals.panchayat.targetOpposition += orgData.panchayat.targetOpposition;
-      
+
       totals.municipality.total += orgData.municipality.total;
       totals.municipality.targetWin += orgData.municipality.targetWin;
       totals.municipality.targetOpposition += orgData.municipality.targetOpposition;
-      
+
       totals.corporation.total += orgData.corporation.total;
       totals.corporation.targetWin += orgData.corporation.targetWin;
       totals.corporation.targetOpposition += orgData.corporation.targetOpposition;
@@ -484,11 +474,11 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
       totals.panchayat.total += orgData.panchayat.total;
       totals.panchayat.targetWin += orgData.panchayat.targetWin;
       totals.panchayat.targetOpposition += orgData.panchayat.targetOpposition;
-      
+
       totals.municipality.total += orgData.municipality.total;
       totals.municipality.targetWin += orgData.municipality.targetWin;
       totals.municipality.targetOpposition += orgData.municipality.targetOpposition;
-      
+
       totals.corporation.total += orgData.corporation.total;
       totals.corporation.targetWin += orgData.corporation.targetWin;
       totals.corporation.targetOpposition += orgData.corporation.targetOpposition;
@@ -518,11 +508,11 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
       totals.panchayat.total += orgData.panchayat.total;
       totals.panchayat.targetWin += orgData.panchayat.targetWin;
       totals.panchayat.targetOpposition += orgData.panchayat.targetOpposition;
-      
+
       totals.municipality.total += orgData.municipality.total;
       totals.municipality.targetWin += orgData.municipality.targetWin;
       totals.municipality.targetOpposition += orgData.municipality.targetOpposition;
-      
+
       totals.corporation.total += orgData.corporation.total;
       totals.corporation.targetWin += orgData.corporation.targetWin;
       totals.corporation.targetOpposition += orgData.corporation.targetOpposition;
@@ -552,11 +542,11 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
       totals.panchayat.total += orgData.panchayat.total;
       totals.panchayat.targetWin += orgData.panchayat.targetWin;
       totals.panchayat.targetOpposition += orgData.panchayat.targetOpposition;
-      
+
       totals.municipality.total += orgData.municipality.total;
       totals.municipality.targetWin += orgData.municipality.targetWin;
       totals.municipality.targetOpposition += orgData.municipality.targetOpposition;
-      
+
       totals.corporation.total += orgData.corporation.total;
       totals.corporation.targetWin += orgData.corporation.targetWin;
       totals.corporation.targetOpposition += orgData.corporation.targetOpposition;
@@ -586,11 +576,11 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
       totals.panchayat.total += orgData.panchayat.total;
       totals.panchayat.targetWin += orgData.panchayat.targetWin;
       totals.panchayat.targetOpposition += orgData.panchayat.targetOpposition;
-      
+
       totals.municipality.total += orgData.municipality.total;
       totals.municipality.targetWin += orgData.municipality.targetWin;
       totals.municipality.targetOpposition += orgData.municipality.targetOpposition;
-      
+
       totals.corporation.total += orgData.corporation.total;
       totals.corporation.targetWin += orgData.corporation.targetWin;
       totals.corporation.targetOpposition += orgData.corporation.targetOpposition;
@@ -622,11 +612,11 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
         totals.panchayat.total += acData.panchayat.total;
         totals.panchayat.targetWin += acData.panchayat.targetWin;
         totals.panchayat.targetOpposition += acData.panchayat.targetOpposition;
-        
+
         totals.municipality.total += acData.municipality.total;
         totals.municipality.targetWin += acData.municipality.targetWin;
         totals.municipality.targetOpposition += acData.municipality.targetOpposition;
-        
+
         totals.corporation.total += acData.corporation.total;
         totals.corporation.targetWin += acData.corporation.targetWin;
         totals.corporation.targetOpposition += acData.corporation.targetOpposition;
@@ -649,11 +639,11 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
         totals.panchayat.total += mandalData.panchayat.total;
         totals.panchayat.targetWin += mandalData.panchayat.targetWin;
         totals.panchayat.targetOpposition += mandalData.panchayat.targetOpposition;
-        
+
         totals.municipality.total += mandalData.municipality.total;
         totals.municipality.targetWin += mandalData.municipality.targetWin;
         totals.municipality.targetOpposition += mandalData.municipality.targetOpposition;
-        
+
         totals.corporation.total += mandalData.corporation.total;
         totals.corporation.targetWin += mandalData.corporation.targetWin;
         totals.corporation.targetOpposition += mandalData.corporation.targetOpposition;
@@ -678,7 +668,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
       // Show mandal level data for the current zone, org district, and AC
       return getMandalTargetData(currentMapContext.zone, currentMapContext.org, currentMapContext.ac);
     }
-    
+
     // Fallback to zone level data
     return getZoneTargetData();
   };
@@ -687,9 +677,9 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
   const getTransformedTargetData = () => {
     const rawData = getTargetData();
     if (!Array.isArray(rawData)) return {};
-    
+
     const transformedData: Record<string, any> = {};
-    
+
     rawData.forEach((item: any) => {
       transformedData[item.name] = {
         panchayat: {
@@ -709,7 +699,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
         }
       };
     });
-    
+
     return transformedData;
   };
 
@@ -717,7 +707,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
   const getTransformedContactData = () => {
     const rawData = getContactData();
     if (!Array.isArray(rawData)) return [];
-    
+
     return rawData.map((contact: any) => ({
       name: contact.name,
       position: contact.inchargeName ? 'Incharge' : contact.presidentName ? 'President' : undefined,
@@ -736,26 +726,30 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
     const acName = currentMapContext.ac;
     const mandalName = currentMapContext.mandal;
 
+    console.log('🔍 Getting contact data for context:', { level, zoneName, orgName, acName, mandalName });
+
     if (level === 'zones') {
       // Hardcoded zone leadership data
-      return [
+      const zoneData = [
         { name: "Thiruvananthapuram", inchargeName: "Shri.B.B Gopakumar", inchargePhone: "9447472265", presidentName: "Shri Mukkam Palamood Biju", presidentPhone: "9995358151" },
         { name: "Alappuzha", inchargeName: "Shri.N.Hari", inchargePhone: "9446924053", presidentName: "Shri Sandeep Vachaspathy", presidentPhone: "9947576800" },
         { name: "Ernakulam", inchargeName: "Shri.V.Unnikrishnan Master", inchargePhone: "9447630600", presidentName: "KS Shyju", presidentPhone: "9747473770" },
         { name: "Palakkad", inchargeName: "Shri.K.Narayanan Master", inchargePhone: "9447004994", presidentName: "Prasanth Sivan", presidentPhone: "9037424212" },
         { name: "Kozhikode", inchargeName: "Shri.O.Nidheesh", inchargePhone: "8075480152", presidentName: "CR Praful Krishnan", presidentPhone: "9745334700" },
       ];
+      console.log('📞 Returning zone contact data:', zoneData);
+      return zoneData;
     } else if (level === 'orgs' && zoneName) {
       // Zone mapping for org districts
       const zoneMapping: { [orgDistrict: string]: string } = {
         // Thiruvananthapuram Zone
         'Kollam East': 'Thiruvananthapuram',
-        'Kollam West': 'Thiruvananthapuram', 
+        'Kollam West': 'Thiruvananthapuram',
         'Pathanamthitta': 'Thiruvananthapuram',
         'Thiruvananthapuram City': 'Thiruvananthapuram',
         'Thiruvananthapuram North': 'Thiruvananthapuram',
         'Thiruvananthapuram South': 'Thiruvananthapuram',
-        
+
         // Alappuzha Zone
         'Alappuzha North': 'Alappuzha',
         'Alappuzha South': 'Alappuzha',
@@ -763,7 +757,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
         'Idukki South': 'Alappuzha',
         'Kottayam East': 'Alappuzha',
         'Kottayam West': 'Alappuzha',
-        
+
         // Ernakulam Zone
         'Ernakulam City': 'Ernakulam',
         'Ernakulam East': 'Ernakulam',
@@ -771,7 +765,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
         'Thrissur City': 'Ernakulam',
         'Thrissur North': 'Ernakulam',
         'Thrissur South': 'Ernakulam',
-        
+
         // Palakkad Zone
         'Malappuram Central': 'Palakkad',
         'Malappuram East': 'Palakkad',
@@ -779,7 +773,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
         'Palakkad East': 'Palakkad',
         'Palakkad West': 'Palakkad',
         'Wayanad': 'Palakkad',
-        
+
         // Kozhikode Zone
         'Kannur North': 'Kozhikode',
         'Kannur South': 'Kozhikode',
@@ -788,28 +782,38 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
         'Kozhikode North': 'Kozhikode',
         'Kozhikode Rural': 'Kozhikode'
       };
-      
+
       // Filter contacts by zone
-      const zoneContacts = orgDistrictContacts.filter(contact => 
+      console.log('📊 Available org district contacts:', orgDistrictContacts.length);
+      const zoneContacts = orgDistrictContacts.filter(contact =>
         zoneMapping[contact.orgDistrict] === zoneName
       );
-      
+      console.log('🎯 Filtered contacts for zone', zoneName, ':', zoneContacts);
+
       // Transform to the expected format
-      return zoneContacts.map(contact => ({
+      const transformedContacts = zoneContacts.map(contact => ({
         name: contact.orgDistrict,
         inchargeName: contact.inchargeName,
         inchargePhone: contact.inchargePhone,
         presidentName: contact.presidentName,
         presidentPhone: contact.presidentPhone
       }));
+      console.log('📞 Returning org district contacts:', transformedContacts);
+      return transformedContacts;
     } else if (level === 'acs' && orgName) {
       // AC level contacts are empty as per user request
+      console.log('ℹ️ AC level - no contacts available');
       return [];
     } else if (level === 'mandals' && acName) {
-      return getMandalContactData(zoneName, orgName);
+      const mandalContacts = getMandalContactData(zoneName, orgName);
+      console.log('📞 Returning mandal contacts:', mandalContacts);
+      return mandalContacts;
     } else if (level === 'panchayats' && mandalName) {
-      return getLocalBodyContactData(zoneName, orgName, acName, mandalName);
+      const localBodyContacts = getLocalBodyContactData(zoneName, orgName, acName, mandalName);
+      console.log('📞 Returning local body contacts:', localBodyContacts);
+      return localBodyContacts;
     }
+    console.log('❌ No contacts found for context:', { level, zoneName, orgName, acName, mandalName });
     return [];
   };
 
@@ -845,7 +849,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
     // Handle messages from iframe for navigation
     const handleMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
-      
+
       if (event.data && event.data.type === 'map-navigation') {
         switch (event.data.action) {
           case 'back':
@@ -857,11 +861,14 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
             break;
           case 'drill-down':
             // Handle drill down navigation if needed
-            console.log('Drill down to:', event.data.target);
             break;
           case 'context-change':
             // Update map context when drill-down level changes
-            setCurrentMapContext(event.data.context || { level: 'zones', zone: '', org: '', ac: '', mandal: '' });
+            const newContext = event.data.context;
+            if (newContext &&
+              ['zones', 'orgs', 'acs', 'mandals', 'panchayats', 'wards'].includes(newContext.level)) {
+              setCurrentMapContext(newContext as MapContext);
+            }
             break;
         }
       }
@@ -869,7 +876,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     window.addEventListener('message', handleMessage);
-    
+
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       window.removeEventListener('message', handleMessage);
@@ -895,18 +902,224 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
     if (iframeRef.current) {
       setIsLoading(true);
       setMapError(false);
-      // Only refresh if needed, don't add random parameters that cause constant reloading
+      // Refresh the map
       iframeRef.current.src = `/map/pan.html`;
     }
   };
 
   const handleIframeLoad = () => {
-    console.log('🗺️ Map iframe loaded');
     // Give the map a moment to fully initialize
     setTimeout(() => {
-    setIsLoading(false);
-    setMapError(false);
-    }, 1000);
+      setIsLoading(false);
+      setMapError(false);
+      
+      // Inject CSS to ORGANIZE and CLEAN UP the iframe elements (not hide them)
+      try {
+        const iframe = iframeRef.current;
+        if (iframe?.contentDocument) {
+          const style = iframe.contentDocument.createElement('style');
+          style.textContent = `
+            /* MINIMAL CLEANUP - Only hide specific breadcrumb elements */
+            
+            /* Hide breadcrumb navigation and target areas section */
+            .breadcrumb-nav, 
+            .navigation-container:has(.breadcrumb),
+            .nav-breadcrumb {
+              display: none !important;
+            }
+            
+            /* SPECIFIC TARGET AREAS HIDING - Don't hide map elements */
+            .target-areas:not(.leaflet-container):not(#map),
+            .target-info:not(.leaflet-container):not(#map),
+            .target-section:not(.leaflet-container):not(#map),
+            .target-panel:not(.leaflet-container):not(#map),
+            .target-legend:not(.leaflet-container):not(#map),
+            .target-summary:not(.leaflet-container):not(#map) {
+              display: none !important;
+            }
+            
+            /* FORCE MAP AND MAIN CONTENT TO BE VISIBLE */
+            body, html, 
+            #map, .leaflet-container, .map-container,
+            .leaflet-map-pane, .leaflet-tile-pane,
+            .leaflet-objects-pane, .leaflet-shadow-pane,
+            .info-panel, .stats-panel, .demographics-panel, 
+            .wards-panel, .legend-panel:not(.target-legend), .control-panel,
+            .data-panel, .floating-panel, .overlay-panel,
+            .statistics, .demographics, .wards,
+            .voter-info, .area-info {
+              display: block !important;
+              visibility: visible !important;
+              opacity: 1 !important;
+              position: relative !important;
+            }
+            
+            /* Ensure map takes proper space */
+            #map, .leaflet-container {
+              width: 100% !important;
+              height: 100% !important;
+              min-height: 400px !important;
+            }
+            
+            /* Clean styling for visible elements */
+            
+            /* Clean up control buttons */
+            button, .btn, .button, [class*="button"] {
+              background: rgba(15, 23, 42, 0.95) !important;
+              backdrop-filter: blur(16px) !important;
+              border: 1px solid rgba(255, 255, 255, 0.1) !important;
+              border-radius: 8px !important;
+              color: white !important;
+              padding: 8px 12px !important;
+              font-size: 14px !important;
+              transition: all 0.2s ease !important;
+              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+              margin: 4px !important;
+            }
+            
+            button:hover, .btn:hover, .button:hover {
+              background: rgba(30, 41, 59, 0.95) !important;
+              border-color: rgba(255, 255, 255, 0.2) !important;
+              transform: translateY(-1px) !important;
+            }
+            
+            /* Organize control panels */
+            .control-panel, .panel, [class*="panel"] {
+              background: rgba(15, 23, 42, 0.95) !important;
+              backdrop-filter: blur(16px) !important;
+              border: 1px solid rgba(255, 255, 255, 0.1) !important;
+              border-radius: 12px !important;
+              padding: 16px !important;
+              margin: 8px !important;
+              box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
+            }
+            
+            /* Clean up statistics and info displays */
+            .stats, .info, .demographics, .wards, [class*="stats"], [class*="info"] {
+              background: rgba(30, 41, 59, 0.8) !important;
+              border: 1px solid rgba(255, 255, 255, 0.1) !important;
+              border-radius: 8px !important;
+              padding: 12px !important;
+              margin: 4px !important;
+              color: white !important;
+            }
+            
+            /* Organize positioning - keep elements but make them neat */
+            .fixed, .absolute, [style*="position: fixed"], [style*="position: absolute"] {
+              z-index: 10 !important;
+            }
+            
+            /* Clean up text and typography */
+            * {
+              font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+            }
+            
+            /* Ensure proper spacing */
+            body {
+              padding: 8px !important;
+              background: #0F172A !important;
+            }
+            
+            /* Clean up leaflet controls */
+            .leaflet-control-container {
+              margin: 8px !important;
+            }
+            
+            .leaflet-control {
+              background: rgba(15, 23, 42, 0.95) !important;
+              border: 1px solid rgba(255, 255, 255, 0.1) !important;
+              border-radius: 8px !important;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+            }
+            
+            .leaflet-control a {
+              color: white !important;
+              background: transparent !important;
+            }
+            
+            .leaflet-control a:hover {
+              background: rgba(255, 255, 255, 0.1) !important;
+            }
+          `;
+          iframe.contentDocument.head.appendChild(style);
+          
+          // Hide breadcrumb and target areas elements by content
+          setTimeout(() => {
+            const allElements = iframe.contentDocument.querySelectorAll('*');
+            allElements.forEach(el => {
+              const text = el.textContent || '';
+              
+              // Hide breadcrumb navigation
+              if ((text.includes('Kerala →') || text.includes('Zones →')) && 
+                  text.length < 100 && // Only small navigation elements
+                  !el.querySelector('.map') && // Don't hide if contains map
+                  !el.querySelector('.panel') && // Don't hide if contains panels
+                  !el.querySelector('.info')) { // Don't hide if contains info
+                (el as HTMLElement).style.display = 'none';
+              }
+              
+              // Hide target areas section - but preserve map elements
+              if ((text.includes('Target Areas') || 
+                  text.includes('🎯') ||
+                  text.includes('✨') ||
+                  text.includes('Win (371)') ||
+                  text.includes('Opposition (76)') ||
+                  text.includes('NA (742)') ||
+                  text.includes('blinking animations') ||
+                  (text.includes('Win') && text.includes('Opposition') && text.includes('NA') && text.length < 200)) &&
+                  // DON'T hide if it's a map element
+                  !el.id?.includes('map') &&
+                  !el.className?.includes('leaflet') &&
+                  !el.className?.includes('map') &&
+                  !el.closest('#map') &&
+                  !el.closest('.leaflet-container')) {
+                (el as HTMLElement).style.display = 'none';
+                (el as HTMLElement).style.visibility = 'hidden';
+              }
+              
+              // Remove blinking/animation classes
+              if (el.classList) {
+                el.classList.remove('blink', 'blinking', 'animated', 'pulse', 'flash');
+              }
+            });
+            
+            // Set up MutationObserver to catch dynamically created target elements (but preserve map)
+            const observer = new MutationObserver((mutations) => {
+              mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
+                  if (node.nodeType === Node.ELEMENT_NODE) {
+                    const element = node as HTMLElement;
+                    const text = element.textContent || '';
+                    
+                    // Hide any new target area elements but NOT map elements
+                    if ((text.includes('Target Areas') || 
+                        text.includes('🎯') ||
+                        text.includes('✨') ||
+                        text.includes('Win (371)') ||
+                        text.includes('Opposition (76)') ||
+                        text.includes('NA (742)') ||
+                        text.includes('blinking animations')) &&
+                        // DON'T hide map elements
+                        !element.id?.includes('map') &&
+                        !element.className?.includes('leaflet') &&
+                        !element.className?.includes('map')) {
+                      element.style.display = 'none';
+                    }
+                  }
+                });
+              });
+            });
+            
+            observer.observe(iframe.contentDocument.body, {
+              childList: true,
+              subtree: true
+            });
+          }, 500);
+        }
+      } catch (error) {
+        console.warn('Could not inject cleanup styles into iframe:', error);
+      }
+    }, 1500); // Increased timeout to ensure iframe is fully loaded
   };
 
   const handleIframeError = () => {
@@ -918,7 +1131,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
   // Enhanced modal handlers with loading state management
   const handleShowPerformance = async () => {
     setShowPerformanceModal(true);
-    
+
     try {
       await performanceLoading.execute(async () => {
         // Preload required data for performance modal
@@ -935,7 +1148,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
 
   const handleShowTargets = async () => {
     setShowTargetModal(true);
-    
+
     try {
       await targetLoading.execute(async () => {
         // Preload required data for target modal
@@ -952,8 +1165,14 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
   };
 
   const handleShowLeadership = async () => {
-    setShowLeadershipModal(true);
+    console.log('🚀 Opening leadership modal...');
+    console.log('📍 Current map context:', currentMapContext);
     
+    const contactData = getContactData();
+    console.log('📞 Contact data retrieved:', contactData);
+    
+    setShowLeadershipModal(true);
+
     try {
       await leadershipLoading.execute(async () => {
         // Preload required data for leadership modal
@@ -969,20 +1188,18 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
 
   const handleExportPDF = async () => {
     try {
-      console.log('🔄 Starting PDF export for current map context...');
-      
       // Get current data based on context
       const voteShareData = getPerformanceData();
       const targetData = getTargetData();
       const contactData = getContactData();
-      
+
       // Create title based on current context
       let title = 'Kerala Map Report';
       if (currentMapContext.zone) title += ` - ${currentMapContext.zone}`;
       if (currentMapContext.org) title += ` - ${currentMapContext.org}`;
       if (currentMapContext.ac) title += ` - ${currentMapContext.ac}`;
       if (currentMapContext.mandal) title += ` - ${currentMapContext.mandal}`;
-      
+
       const pdfData = {
         context: currentMapContext,
         voteShareData: Array.isArray(voteShareData) ? voteShareData : undefined,
@@ -990,16 +1207,14 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
         contactData: Array.isArray(contactData) ? contactData : undefined,
         title
       };
-      
+
       // Use mobile PDF generator if on mobile device
-      const success = mobileInfo.isMobile || mobileInfo.isTouchDevice 
+      const success = mobileInfo.isMobile || mobileInfo.isTouchDevice
         ? await generateMapPDFMobile(pdfData)
         : await generateMapPDF(pdfData);
-      
-      if (success) {
-        console.log('✅ PDF export completed successfully');
-      } else {
-        console.error('❌ PDF export failed');
+
+      if (!success) {
+        console.error('PDF export failed');
         alert('Failed to generate PDF. Please try again.');
       }
     } catch (error) {
@@ -1009,7 +1224,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
   };
 
   return (
-    <div 
+    <div
       id="integrated-map-container"
       className={`relative w-full bg-gradient-primary ${isFullscreen ? 'fixed inset-0 z-50' : 'h-full'} overflow-hidden`}
       style={{
@@ -1021,28 +1236,112 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
       <div className="floating-bg floating-bg-1"></div>
       <div className="floating-bg floating-bg-2"></div>
       <div className="floating-bg floating-bg-3"></div>
-      {/* Map Controls - Top Right */}
-      <MapControls
-        isFullscreen={isFullscreen}
-        onToggleFullscreen={toggleFullscreen}
-        onRefresh={refreshMap}
-      />
+      {/* ORGANIZED DESIGN - Clean but functional */}
+      
+      {/* Organized Control Bar - Top */}
+      <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-30 bg-slate-900/95 backdrop-blur-md rounded-xl border border-slate-700/50 p-2 shadow-xl">
+        <div className="flex items-center gap-2">
+          {/* Map Controls */}
+          <div className="flex items-center gap-1 pr-2 border-r border-slate-700/50">
+            <button
+              onClick={toggleFullscreen}
+              className="w-8 h-8 bg-slate-700/50 hover:bg-slate-600/50 text-white rounded-md flex items-center justify-center transition-all duration-200"
+              title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+            >
+              {isFullscreen ? 
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
+                </svg> :
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                </svg>
+              }
+            </button>
+            
+            <button
+              onClick={refreshMap}
+              className="w-8 h-8 bg-slate-700/50 hover:bg-slate-600/50 text-white rounded-md flex items-center justify-center transition-all duration-200"
+              title="Refresh Map"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                <path d="M21 3v5h-5"/>
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                <path d="M3 21v-5h5"/>
+              </svg>
+            </button>
+          </div>
 
-      {/* Dashboard Control Panel */}
-      <ControlPanel
-        onShowLeadership={handleShowLeadership}
-        onShowPerformance={handleShowPerformance}
-        onShowTargets={handleShowTargets}
-        onExportPDF={handleExportPDF}
-        isMobile={mobileInfo.isMobile}
-        onCollapseChange={setIsControlPanelCollapsed}
-      />
+          {/* Data Controls */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleShowPerformance}
+              className="px-3 py-1.5 bg-blue-600/80 hover:bg-blue-700/80 text-white rounded-md flex items-center gap-1.5 transition-all duration-200 text-sm font-medium"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
+              </svg>
+              Performance
+            </button>
+            
+            <button
+              onClick={handleShowTargets}
+              className="px-3 py-1.5 bg-orange-600/80 hover:bg-orange-700/80 text-white rounded-md flex items-center gap-1.5 transition-all duration-200 text-sm font-medium"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <circle cx="12" cy="12" r="6"/>
+                <circle cx="12" cy="12" r="2"/>
+              </svg>
+              Targets
+            </button>
+            
+            <button
+              onClick={handleShowLeadership}
+              className="px-3 py-1.5 bg-green-600/80 hover:bg-green-700/80 text-white rounded-md flex items-center gap-1.5 transition-all duration-200 text-sm font-medium"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="m22 21-3-3m0 0a2 2 0 1 0-2.828-2.828A2 2 0 0 0 19 18Z"/>
+              </svg>
+              Contacts
+            </button>
+            
+            <button
+              onClick={handleExportPDF}
+              className="px-3 py-1.5 bg-slate-600/80 hover:bg-slate-700/80 text-white rounded-md flex items-center gap-1.5 transition-all duration-200 text-sm font-medium"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7,10 12,15 17,10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Export
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Floating Action Button */}
+      {mobileInfo.isMobile && (
+        <div className="fixed bottom-6 right-6 z-30">
+          <button
+            onClick={handleShowPerformance}
+            className="w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-xl flex items-center justify-center transition-all duration-200 hover:scale-105"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Loading Indicator */}
       {isLoading && (
-        <div 
+        <div
           className="absolute inset-0 bg-gradient-primary flex items-center justify-center"
-          style={{ 
+          style={{
             zIndex: 60, // Use loadingOverlay z-index
             marginLeft: mobileInfo.isMobile ? '0' : isControlPanelCollapsed ? '4rem' : '20rem'
           }}
@@ -1059,9 +1358,9 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
 
       {/* Error State */}
       {mapError && (
-        <div 
+        <div
           className="fixed inset-0 bg-gradient-primary flex items-center justify-center"
-          style={{ 
+          style={{
             zIndex: 60, // Use loadingOverlay z-index
             marginLeft: mobileInfo.isMobile ? '0' : isControlPanelCollapsed ? '4rem' : '20rem'
           }}
@@ -1091,13 +1390,14 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
         </div>
       )}
 
-      {/* Map Container - Responsive with proper margins for control panels */}
-      <div 
+      {/* Map Container - Full screen with space for control bar */}
+      <div
         className="transition-all duration-300 relative"
         style={{
-          marginLeft: mobileInfo.isMobile ? '0' : isControlPanelCollapsed ? '4rem' : '20rem',
+          marginLeft: '0',
           marginRight: '0',
-          height: isFullscreen ? '100vh' : mobileInfo.isMobile ? 'calc(100vh - 48px)' : 'calc(100vh - 64px)',
+          marginTop: isFullscreen ? '0' : '80px', // Space for control bar
+          height: isFullscreen ? '100vh' : 'calc(100vh - 144px)', // Account for header + control bar
           zIndex: 1 // Base z-index for map content
         }}
       >
@@ -1106,7 +1406,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
           src="/map/pan.html"
           title="Kerala Interactive Map"
           className="w-full h-full border-none bg-gradient-primary touch-manipulation"
-          style={{ 
+          style={{
             minHeight: mobileInfo.isMobile ? '350px' : '400px',
             backgroundColor: '#1F2937',
             touchAction: 'manipulation',
@@ -1128,9 +1428,9 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
         onClose={() => setShowPerformanceModal(false)}
         data={getPerformanceData()}
         title={
-          currentMapContext.level === 'zones' ? 'Zone Wise Targets For 2025' : 
-          currentMapContext.level === 'orgs' ? `${currentMapContext.zone} Zone - Org District Targets For 2025` :
-          'Performance Targets For 2025'
+          currentMapContext.level === 'zones' ? 'Zone Wise Targets For 2025' :
+            currentMapContext.level === 'orgs' ? `${currentMapContext.zone} Zone - Org District Targets For 2025` :
+              'Performance Targets For 2025'
         }
         grandTotal={getGrandTotal()}
         isLoading={performanceLoading.isLoading}
@@ -1227,7 +1527,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
                     </div>
                   );
                 }
-                
+
                 if (Array.isArray(contactData) && contactData.length > 0) {
                   return (
                     <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 overflow-hidden">
@@ -1300,7 +1600,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
                           <tbody className="divide-y divide-gray-700/50">
                             {contactData.map((contact: any, index: number) => {
                               const level = currentMapContext.level;
-                              
+
                               // For local body contacts, use the specific structure with President, Incharge, and Secretary
                               if (level === 'panchayats') {
                                 const presidentName = contact.president?.name || 'N/A';
@@ -1309,7 +1609,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
                                 const inchargePhone = contact.incharge?.phone || 'N/A';
                                 const secretaryName = contact.secretary?.name || 'N/A';
                                 const secretaryPhone = contact.secretary?.phone || 'N/A';
-                                
+
                                 return (
                                   <tr key={index} className="hover:bg-gray-700/30 transition-colors">
                                     <td className="px-4 py-3 text-sm font-medium text-white">
@@ -1327,7 +1627,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
                                     </td>
                                     <td className="px-4 py-3 text-sm">
                                       <div className="text-orange-300 font-medium">
-                                        {presidentName !== 'N/A' ? presidentName : 
+                                        {presidentName !== 'N/A' ? presidentName :
                                           <span className="text-gray-500 italic">Not Available</span>
                                         }
                                       </div>
@@ -1337,8 +1637,8 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
                                     </td>
                                     <td className="px-4 py-3 text-sm">
                                       {presidentPhone !== 'N/A' ? (
-                                        <a href={`tel:${presidentPhone}`} 
-                                           className="text-orange-300 hover:text-orange-200 transition-colors font-mono text-xs bg-orange-500/10 px-2 py-1 rounded border border-orange-500/20 hover:border-orange-400/30">
+                                        <a href={`tel:${presidentPhone}`}
+                                          className="text-orange-300 hover:text-orange-200 transition-colors font-mono text-xs bg-orange-500/10 px-2 py-1 rounded border border-orange-500/20 hover:border-orange-400/30">
                                           📞 {presidentPhone}
                                         </a>
                                       ) : (
@@ -1347,7 +1647,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
                                     </td>
                                     <td className="px-4 py-3 text-sm">
                                       <div className="text-blue-300 font-medium">
-                                        {inchargeName !== 'N/A' ? inchargeName : 
+                                        {inchargeName !== 'N/A' ? inchargeName :
                                           <span className="text-gray-500 italic">Not Available</span>
                                         }
                                       </div>
@@ -1357,8 +1657,8 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
                                     </td>
                                     <td className="px-4 py-3 text-sm">
                                       {inchargePhone !== 'N/A' ? (
-                                        <a href={`tel:${inchargePhone}`} 
-                                           className="text-blue-300 hover:text-blue-200 transition-colors font-mono text-xs bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20 hover:border-blue-400/30">
+                                        <a href={`tel:${inchargePhone}`}
+                                          className="text-blue-300 hover:text-blue-200 transition-colors font-mono text-xs bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20 hover:border-blue-400/30">
                                           📞 {inchargePhone}
                                         </a>
                                       ) : (
@@ -1367,7 +1667,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
                                     </td>
                                     <td className="px-4 py-3 text-sm">
                                       <div className="text-green-300 font-medium">
-                                        {secretaryName !== 'N/A' ? secretaryName : 
+                                        {secretaryName !== 'N/A' ? secretaryName :
                                           <span className="text-gray-500 italic">Not Available</span>
                                         }
                                       </div>
@@ -1377,8 +1677,8 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
                                     </td>
                                     <td className="px-4 py-3 text-sm">
                                       {secretaryPhone !== 'N/A' ? (
-                                        <a href={`tel:${secretaryPhone}`} 
-                                           className="text-green-300 hover:text-green-200 transition-colors font-mono text-xs bg-green-500/10 px-2 py-1 rounded border border-green-500/20 hover:border-green-400/30">
+                                        <a href={`tel:${secretaryPhone}`}
+                                          className="text-green-300 hover:text-green-200 transition-colors font-mono text-xs bg-green-500/10 px-2 py-1 rounded border border-green-500/20 hover:border-green-400/30">
                                           📞 {secretaryPhone}
                                         </a>
                                       ) : (
@@ -1388,14 +1688,14 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
                                   </tr>
                                 );
                               }
-                              
+
                               // For mandal contacts, use the specific structure
                               if (level === 'mandals') {
                                 const presidentName = contact.president?.name || 'N/A';
                                 const presidentPhone = contact.president?.phone || 'N/A';
                                 const prabhariName = contact.prabhari?.name || 'N/A';
                                 const prabhariPhone = contact.prabhari?.phone || 'N/A';
-                                
+
                                 return (
                                   <tr key={index} className="hover:bg-gray-700/30 transition-colors">
                                     <td className="px-4 py-3 text-sm font-medium text-white">
@@ -1406,7 +1706,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
                                     </td>
                                     <td className="px-4 py-3 text-sm">
                                       <div className="text-blue-300 font-medium">
-                                        {presidentName !== 'N/A' ? presidentName : 
+                                        {presidentName !== 'N/A' ? presidentName :
                                           <span className="text-gray-500 italic">Not Available</span>
                                         }
                                       </div>
@@ -1416,8 +1716,8 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
                                     </td>
                                     <td className="px-4 py-3 text-sm">
                                       {presidentPhone !== 'N/A' ? (
-                                        <a href={`tel:${presidentPhone}`} 
-                                           className="text-purple-300 hover:text-purple-200 transition-colors font-mono text-xs bg-purple-500/10 px-2 py-1 rounded border border-purple-500/20 hover:border-purple-400/30">
+                                        <a href={`tel:${presidentPhone}`}
+                                          className="text-purple-300 hover:text-purple-200 transition-colors font-mono text-xs bg-purple-500/10 px-2 py-1 rounded border border-purple-500/20 hover:border-purple-400/30">
                                           📞 {presidentPhone}
                                         </a>
                                       ) : (
@@ -1426,7 +1726,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
                                     </td>
                                     <td className="px-4 py-3 text-sm">
                                       <div className="text-yellow-300 font-medium">
-                                        {prabhariName !== 'N/A' ? prabhariName : 
+                                        {prabhariName !== 'N/A' ? prabhariName :
                                           <span className="text-gray-500 italic">Not Available</span>
                                         }
                                       </div>
@@ -1436,8 +1736,8 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
                                     </td>
                                     <td className="px-4 py-3 text-sm">
                                       {prabhariPhone !== 'N/A' ? (
-                                        <a href={`tel:${prabhariPhone}`} 
-                                           className="text-orange-300 hover:text-orange-200 transition-colors font-mono text-xs bg-orange-500/10 px-2 py-1 rounded border border-orange-500/20 hover:border-orange-400/30">
+                                        <a href={`tel:${prabhariPhone}`}
+                                          className="text-orange-300 hover:text-orange-200 transition-colors font-mono text-xs bg-orange-500/10 px-2 py-1 rounded border border-orange-500/20 hover:border-orange-400/30">
                                           📞 {prabhariPhone}
                                         </a>
                                       ) : (
@@ -1447,7 +1747,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
                                   </tr>
                                 );
                               }
-                              
+
                               // For other contact types, use the original structure
                               return (
                                 <tr key={index} className="hover:bg-gray-700/30 transition-colors">
@@ -1456,8 +1756,8 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
                                     {contact.incharge || contact.president?.name || contact.presidentName || 'N/A'}
                                   </td>
                                   <td className="px-4 py-3 text-sm text-blue-300 font-mono">
-                                    <a href={`tel:${contact.inchargePhone || contact.president?.phone || contact.presidentPhone || ''}`} 
-                                       className="hover:text-blue-200 transition-colors">
+                                    <a href={`tel:${contact.inchargePhone || contact.president?.phone || contact.presidentPhone || ''}`}
+                                      className="hover:text-blue-200 transition-colors">
                                       {contact.inchargePhone || contact.president?.phone || contact.presidentPhone || 'N/A'}
                                     </a>
                                   </td>
@@ -1465,8 +1765,8 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
                                     {contact.president || contact.prabhari?.name || contact.inchargeName || 'N/A'}
                                   </td>
                                   <td className="px-4 py-3 text-sm text-orange-300 font-mono">
-                                    <a href={`tel:${contact.presidentPhone || contact.prabhari?.phone || contact.inchargePhone || ''}`} 
-                                       className="hover:text-orange-200 transition-colors">
+                                    <a href={`tel:${contact.presidentPhone || contact.prabhari?.phone || contact.inchargePhone || ''}`}
+                                      className="hover:text-orange-200 transition-colors">
                                       {contact.presidentPhone || contact.prabhari?.phone || contact.inchargePhone || 'N/A'}
                                     </a>
                                   </td>
@@ -1476,7 +1776,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
                           </tbody>
                         </table>
                       </div>
-                      
+
                       {/* Summary Footer for Contact Statistics */}
                       {(currentMapContext.level === 'mandals' || currentMapContext.level === 'panchayats') && (
                         <div className="px-4 py-3 bg-gray-700/20 border-t border-gray-700/50">
@@ -1514,7 +1814,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
                     </div>
                   );
                 }
-                
+
                 // Fallback for no data
                 return (
                   <div className="text-center py-12">
@@ -1533,7 +1833,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
             </div>
           </div>
         </div>
-        )}
+      )}
 
       {/* Target Modal */}
       <TargetModal

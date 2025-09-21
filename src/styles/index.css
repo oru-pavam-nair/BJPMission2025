@@ -1,5 +1,6 @@
 /* Import Design System */
 @import './design-system.css';
+@import './minimal-clean.css';
 
 @tailwind base;
 @tailwind components;
