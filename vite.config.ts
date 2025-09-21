@@ -59,9 +59,15 @@ export default defineConfig(({ command, mode }) => {
           assetFileNames: getAssetFileName,
         },
         
-        // Tree-shaking optimizations
+        // Tree-shaking optimizations - less aggressive for React apps
         treeshake: {
-          moduleSideEffects: false,
+          moduleSideEffects: (id) => {
+            // Preserve side effects for React and main app files
+            return id.includes('react') || 
+                   id.includes('/src/') || 
+                   id.includes('main.tsx') ||
+                   id.includes('App.tsx');
+          },
           propertyReadSideEffects: false,
           tryCatchDeoptimization: false,
         },
@@ -87,6 +93,8 @@ export default defineConfig(({ command, mode }) => {
         : [],
       legalComments: 'none',
       target: 'es2020',
+      // Preserve React imports and main app code
+      keepNames: true,
     },
     
     server: {
@@ -94,12 +102,22 @@ export default defineConfig(({ command, mode }) => {
       port: 5173,
       open: !isProduction,
       cors: true,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
     },
     
     preview: {
       host: true,
       port: 4173,
       open: true,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
     },
     
     // Environment variable handling

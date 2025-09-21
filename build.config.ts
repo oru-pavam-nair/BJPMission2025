@@ -43,7 +43,7 @@ export const buildConfig: BuildOptimizationConfig = {
   },
   treeshaking: {
     enabled: true,
-    sideEffects: false,
+    sideEffects: true, // Allow side effects for React apps
   },
 };
 
