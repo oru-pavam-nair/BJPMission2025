@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { LoginPage } from './components/LoginPage';
 import IntegratedKeralaMap from './components/IntegratedKeralaMap';
+import Navigation from './components/layout/Navigation';
 import { isAuthenticated, getCurrentUser, clearAuthSession } from './utils/auth';
-import { LogOut, User, AlertTriangle } from 'lucide-react';
+import { initializeAccessibility, useKeyboardNavigation } from './utils/accessibility';
+import { AlertTriangle } from 'lucide-react';
 
 // Error Boundary Component for graceful error handling
 class ErrorBoundary extends React.Component<
@@ -52,9 +54,15 @@ const App: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  
+  // Initialize keyboard navigation tracking
+  useKeyboardNavigation();
 
-  // Check authentication status on app initialization
+  // Initialize accessibility features and check authentication status
   useEffect(() => {
+    // Initialize accessibility features
+    initializeAccessibility();
+    
     const checkAuthStatus = () => {
       try {
         const authenticated = isAuthenticated();
@@ -99,9 +107,17 @@ const App: React.FC = () => {
   // Show loading screen during initialization
   if (isInitializing) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
+      <div 
+        className="min-h-screen bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center"
+        role="status"
+        aria-live="polite"
+        aria-label="Loading application"
+      >
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-4"></div>
+          <div 
+            className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-4"
+            aria-hidden="true"
+          ></div>
           <p className="text-white text-lg">Loading Kerala Map...</p>
         </div>
       </div>
@@ -111,38 +127,44 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <div className="min-h-screen">
+        {/* Skip link for keyboard navigation */}
+        <a 
+          href="#main-content" 
+          className="ds-skip-link"
+          tabIndex={1}
+        >
+          Skip to main content
+        </a>
+        
         {!isLoggedIn ? (
           // Show login page if not authenticated
           <LoginPage onLogin={handleLogin} />
         ) : (
           // Show map application if authenticated
-          <div className="relative min-h-screen">
-            {/* Header with user info and logout - minimal design */}
-            <div className="absolute top-0 right-0 z-50 p-4">
-              <div className="bg-white/10 backdrop-blur-md rounded-lg px-4 py-2 flex items-center space-x-3 border border-white/20">
-                <div className="flex items-center space-x-2 text-white">
-                  <User size={16} />
-                  <span className="text-sm font-medium">
-                    {currentUser ? `+91 ${currentUser}` : 'User'}
-                  </span>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="text-white/80 hover:text-white transition-colors duration-200 p-1 rounded hover:bg-white/10"
-                  title="Logout"
-                  aria-label="Logout"
-                >
-                  <LogOut size={16} />
-                </button>
-              </div>
-            </div>
+          <div className="relative min-h-screen bg-slate-900">
+            {/* Navigation Header */}
+            <Navigation 
+              currentUser={currentUser}
+              onLogout={handleLogout}
+            />
 
-            {/* Main Map Component - Full Screen */}
-            <div className="w-full h-screen">
+            {/* Main Map Component - Full Screen with proper top spacing for navigation */}
+            <main 
+              id="main-content"
+              className="pt-16 sm:pt-16 w-full" 
+              style={{ height: 'calc(100vh - 64px)' }}
+              role="main"
+              aria-label="Kerala BJP Dashboard Map Interface"
+            >
               <IntegratedKeralaMap />
-            </div>
+            </main>
           </div>
         )}
+        
+        {/* ARIA live regions for announcements */}
+        <div id="aria-live-announcements" aria-live="polite" aria-atomic="true" className="ds-sr-only"></div>
+        <div id="aria-live-status" aria-live="polite" aria-atomic="true" className="ds-sr-only"></div>
+        <div id="aria-live-errors" aria-live="assertive" aria-atomic="true" className="ds-sr-only"></div>
       </div>
     </ErrorBoundary>
   );

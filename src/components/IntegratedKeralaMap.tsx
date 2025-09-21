@@ -13,7 +13,14 @@ import { loadLocalBodyContactData, getLocalBodyContactData } from '../utils/load
 import { loadZoneTargetData, getZoneTargetData } from '../utils/loadZoneTargetData';
 import { useMobileDetection, optimizeTouchInteractions } from '../utils/mobileDetection';
 import { generateMapPDF, generateMapPDFMobile } from '../utils/mapPdfExporter';
-import { Maximize2, Minimize2, RotateCcw, MapPin, Download } from 'lucide-react';
+import ControlPanel from './layout/ControlPanel';
+import MapControls from './layout/MapControls';
+import { PerformanceModal, TargetModal, LeadershipModal } from './ui';
+import { MapPin } from 'lucide-react';
+import { useLoadingState } from '../utils/loadingStateManager';
+import { useEnhancedDataLoader } from '../utils/enhancedDataLoader';
+import { LoadingIndicator } from './ui/LoadingIndicator';
+import { ErrorDisplay } from './ui/ErrorBoundary';
 
 interface IntegratedKeralaMapProps {
   onBack?: () => void;
@@ -27,16 +34,25 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
   const [showPerformanceModal, setShowPerformanceModal] = useState(false);
   const [showTargetModal, setShowTargetModal] = useState(false);
   const [showLeadershipModal, setShowLeadershipModal] = useState(false);
+  
+  // Modal loading states
+  const performanceLoading = useLoadingState('performance-modal-data');
+  const targetLoading = useLoadingState('target-modal-data');
+  const leadershipLoading = useLoadingState('leadership-modal-data');
   const [currentMapContext, setCurrentMapContext] = useState({ level: 'zones', zone: '', org: '', ac: '', mandal: '' });
   const [selectedOrgDistrict, setSelectedOrgDistrict] = useState<string | null>(null);
   const [selectedAC, setSelectedAC] = useState<string | null>(null);
   const [acData, setAcData] = useState<ACData>({});
   const [mandalData, setMandalData] = useState<MandalData>({});
   const [orgDistrictContacts, setOrgDistrictContacts] = useState<any[]>([]);
+  const [isControlPanelCollapsed, setIsControlPanelCollapsed] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   
   // Mobile detection hook
   const mobileInfo = useMobileDetection();
+  
+  // Enhanced data loader
+  const dataLoader = useEnhancedDataLoader();
 
   // Load AC and Mandal data from CSV
   useEffect(() => {
@@ -667,6 +683,51 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
     return getZoneTargetData();
   };
 
+  // Transform target data for the new modal component
+  const getTransformedTargetData = () => {
+    const rawData = getTargetData();
+    if (!Array.isArray(rawData)) return {};
+    
+    const transformedData: Record<string, any> = {};
+    
+    rawData.forEach((item: any) => {
+      transformedData[item.name] = {
+        panchayat: {
+          total: item.lsgTotal || 0,
+          targetWin: item.lsgTargetWin || 0,
+          targetOpposition: item.lsgTargetOpposition || 0
+        },
+        municipality: {
+          total: item.municipalityTotal || 0,
+          targetWin: item.municipalityTargetWin || 0,
+          targetOpposition: item.municipalityTargetOpposition || 0
+        },
+        corporation: {
+          total: item.corporationTotal || 0,
+          targetWin: item.corporationTargetWin || 0,
+          targetOpposition: item.corporationTargetOpposition || 0
+        }
+      };
+    });
+    
+    return transformedData;
+  };
+
+  // Transform contact data for the new modal component
+  const getTransformedContactData = () => {
+    const rawData = getContactData();
+    if (!Array.isArray(rawData)) return [];
+    
+    return rawData.map((contact: any) => ({
+      name: contact.name,
+      position: contact.inchargeName ? 'Incharge' : contact.presidentName ? 'President' : undefined,
+      phone: contact.inchargePhone || contact.presidentPhone || contact.president?.phone || contact.prabhari?.phone,
+      email: contact.email,
+      address: contact.address,
+      area: contact.area
+    }));
+  };
+
   // Function to get contact data based on current context
   const getContactData = () => {
     const level = currentMapContext.level;
@@ -854,6 +915,58 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
     setMapError(true);
   };
 
+  // Enhanced modal handlers with loading state management
+  const handleShowPerformance = async () => {
+    setShowPerformanceModal(true);
+    
+    try {
+      await performanceLoading.execute(async () => {
+        // Preload required data for performance modal
+        await Promise.all([
+          dataLoader.loadACVoteShareData(),
+          dataLoader.loadMandalVoteShareData(),
+          dataLoader.loadLocalBodyVoteShareData()
+        ]);
+      });
+    } catch (error) {
+      console.error('Failed to load performance data:', error);
+    }
+  };
+
+  const handleShowTargets = async () => {
+    setShowTargetModal(true);
+    
+    try {
+      await targetLoading.execute(async () => {
+        // Preload required data for target modal
+        await Promise.all([
+          dataLoader.loadACTargetData(),
+          dataLoader.loadMandalTargetData(),
+          dataLoader.loadOrgDistrictTargetData(),
+          dataLoader.loadZoneTargetData()
+        ]);
+      });
+    } catch (error) {
+      console.error('Failed to load target data:', error);
+    }
+  };
+
+  const handleShowLeadership = async () => {
+    setShowLeadershipModal(true);
+    
+    try {
+      await leadershipLoading.execute(async () => {
+        // Preload required data for leadership modal
+        await Promise.all([
+          dataLoader.loadMandalContactData(),
+          dataLoader.loadOrgDistrictContacts()
+        ]);
+      });
+    } catch (error) {
+      console.error('Failed to load leadership data:', error);
+    }
+  };
+
   const handleExportPDF = async () => {
     try {
       console.log('🔄 Starting PDF export for current map context...');
@@ -904,80 +1017,32 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
       <div className="floating-bg floating-bg-1"></div>
       <div className="floating-bg floating-bg-2"></div>
       <div className="floating-bg floating-bg-3"></div>
-      {/* Map Controls - Top Right - Mobile Optimized */}
-      <div className="absolute top-2 right-2 sm:top-4 sm:right-4 md:top-6 md:right-6 z-10 flex flex-col gap-1 sm:gap-2 md:gap-3">
-        <button
-          onClick={refreshMap}
-          className="p-2 sm:p-3 md:p-3 glass-morphism hover:bg-gradient-orange text-white rounded-lg sm:rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 active:scale-95 icon-glow touch-target"
-          title="Refresh Map"
-        >
-          <RotateCcw size={16} className="sm:w-4 sm:h-4 md:w-5 md:h-5" />
-        </button>
-        <button
-          onClick={toggleFullscreen}
-          className="p-2 sm:p-3 md:p-3 glass-morphism hover:bg-gradient-orange text-white rounded-lg sm:rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 active:scale-95 icon-glow touch-target"
-          title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-        >
-          {isFullscreen ? <Minimize2 size={16} className="sm:w-4 sm:h-4 md:w-5 md:h-5" /> : <Maximize2 size={16} className="sm:w-4 sm:h-4 md:w-5 md:h-5" />}
-        </button>
-      </div>
+      {/* Map Controls - Top Right */}
+      <MapControls
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={toggleFullscreen}
+        onRefresh={refreshMap}
+      />
 
-
-      {/* Dashboard Navigation Buttons - Mobile Optimized */}
-      <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-10 flex flex-col gap-1 sm:gap-2">
-        <div className="flex gap-1 sm:gap-2">
-          <button
-            onClick={() => setShowLeadershipModal(true)}
-            className="flex items-center gap-1 sm:gap-2 px-2 py-1.5 sm:px-3 sm:py-2 glass-morphism hover:bg-gradient-to-r hover:from-green-500 hover:to-green-600 text-white rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105 active:scale-95 icon-glow touch-target"
-            title="Leadership Contacts"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-4 sm:h-4">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-              <circle cx="9" cy="7" r="4"></circle>
-              <path d="m22 21-3-3m0 0a2 2 0 1 0-2.828-2.828A2 2 0 0 0 19 18Z"></path>
-            </svg>
-            <span className="text-xs sm:text-sm font-medium hidden sm:inline">Contacts</span>
-          </button>
-          
-          <button
-            onClick={() => setShowPerformanceModal(true)}
-            className="flex items-center gap-1 sm:gap-2 px-2 py-1.5 sm:px-3 sm:py-2 glass-morphism hover:bg-gradient-to-r hover:from-purple-500 hover:to-purple-600 text-white rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105 active:scale-95 icon-glow touch-target"
-            title="Vote Share Performance"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-4 sm:h-4">
-              <path d="M3 3v18h18"></path>
-              <path d="m19 9-5 5-4-4-3 3"></path>
-            </svg>
-            <span className="text-xs sm:text-sm font-medium hidden sm:inline">Vote Share</span>
-          </button>
-          
-          <button
-            onClick={() => setShowTargetModal(true)}
-            className="flex items-center gap-1 sm:gap-2 px-2 py-1.5 sm:px-3 sm:py-2 glass-morphism hover:bg-gradient-to-r hover:from-red-500 hover:to-red-600 text-white rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105 active:scale-95 icon-glow touch-target"
-            title="Local Body Targets"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-4 sm:h-4">
-              <circle cx="12" cy="12" r="10"></circle>
-              <circle cx="12" cy="12" r="6"></circle>
-              <circle cx="12" cy="12" r="2"></circle>
-            </svg>
-            <span className="text-xs sm:text-sm font-medium hidden sm:inline">LB Target</span>
-          </button>
-          
-          <button
-            onClick={handleExportPDF}
-            className="flex items-center gap-1 sm:gap-2 px-2 py-1.5 sm:px-3 sm:py-2 glass-morphism hover:bg-gradient-to-r hover:from-blue-500 hover:to-blue-600 text-white rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105 active:scale-95 icon-glow touch-target"
-            title="Export PDF Report"
-          >
-            <Download size={12} className="sm:w-4 sm:h-4" />
-            <span className="text-xs sm:text-sm font-medium hidden sm:inline">Export PDF</span>
-          </button>
-        </div>
-      </div>
+      {/* Dashboard Control Panel */}
+      <ControlPanel
+        onShowLeadership={handleShowLeadership}
+        onShowPerformance={handleShowPerformance}
+        onShowTargets={handleShowTargets}
+        onExportPDF={handleExportPDF}
+        isMobile={mobileInfo.isMobile}
+        onCollapseChange={setIsControlPanelCollapsed}
+      />
 
       {/* Loading Indicator */}
       {isLoading && (
-        <div className="absolute inset-0 bg-gradient-primary flex items-center justify-center z-20">
+        <div 
+          className="fixed inset-0 bg-gradient-primary flex items-center justify-center"
+          style={{ 
+            zIndex: 60, // Use loadingOverlay z-index
+            marginLeft: mobileInfo.isMobile ? '0' : isControlPanelCollapsed ? '4rem' : '20rem'
+          }}
+        >
           <div className="text-center text-white">
             <div className="animate-spin rounded-full h-16 w-16 border-4 border-orange-500/30 border-t-orange-500 mx-auto mb-6"></div>
             <h3 className="text-2xl font-bold bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent mb-2">
@@ -990,7 +1055,13 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
 
       {/* Error State */}
       {mapError && (
-        <div className="absolute inset-0 bg-gradient-primary flex items-center justify-center z-20">
+        <div 
+          className="fixed inset-0 bg-gradient-primary flex items-center justify-center"
+          style={{ 
+            zIndex: 60, // Use loadingOverlay z-index
+            marginLeft: mobileInfo.isMobile ? '0' : isControlPanelCollapsed ? '4rem' : '20rem'
+          }}
+        >
           <div className="text-center text-white p-6 glass-morphism rounded-2xl shadow-2xl max-w-md mx-4">
             <div className="text-red-400 mb-6">
               <MapPin size={48} className="mx-auto" />
@@ -1001,178 +1072,89 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
             <p className="text-gray-300 mb-6">Unable to load the interactive map. Please try refreshing.</p>
             <button
               onClick={refreshMap}
-              className="px-6 py-3 bg-gradient-orange hover:bg-gradient-to-r hover:from-orange-600 hover:to-orange-700 text-white rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105"
+              className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 ds-touch-target"
+              style={{ minHeight: '44px', minWidth: '44px' }}
             >
-              <RotateCcw size={20} className="inline-block mr-2" /> Try Again
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block mr-2">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+                <path d="M21 3v5h-5"></path>
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+                <path d="M3 21v-5h5"></path>
+              </svg>
+              Try Again
             </button>
           </div>
         </div>
       )}
 
-      {/* Map Iframe - Mobile Optimized */}
-      <iframe
-        ref={iframeRef}
-        src="/map/pan.html"
-        title="Kerala Interactive Map"
-        className="w-full h-full border-none bg-gradient-primary touch-manipulation"
-        style={{ 
+      {/* Map Container - Responsive with proper margins for control panels */}
+      <div 
+        className="transition-all duration-300 relative"
+        style={{
+          marginLeft: mobileInfo.isMobile ? '0' : isControlPanelCollapsed ? '4rem' : '20rem',
+          marginRight: '0',
           height: isFullscreen ? '100vh' : mobileInfo.isMobile ? 'calc(100vh - 48px)' : 'calc(100vh - 64px)',
-          minHeight: mobileInfo.isMobile ? '350px' : '400px',
-          backgroundColor: '#1F2937',
-          touchAction: 'manipulation',
-          userSelect: 'none',
-          WebkitOverflowScrolling: 'touch'
+          zIndex: 1 // Base z-index for map content
         }}
-        onLoad={handleIframeLoad}
-        onError={handleIframeError}
-        allowFullScreen
-        sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+      >
+        <iframe
+          ref={iframeRef}
+          src="/map/pan.html"
+          title="Kerala Interactive Map"
+          className="w-full h-full border-none bg-gradient-primary touch-manipulation"
+          style={{ 
+            minHeight: mobileInfo.isMobile ? '350px' : '400px',
+            backgroundColor: '#1F2937',
+            touchAction: 'manipulation',
+            userSelect: 'none',
+            WebkitOverflowScrolling: 'touch',
+            border: 'none',
+            outline: 'none'
+          }}
+          onLoad={handleIframeLoad}
+          onError={handleIframeError}
+          allowFullScreen
+          sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+        />
+      </div>
+
+      {/* Performance Modal */}
+      <PerformanceModal
+        isOpen={showPerformanceModal}
+        onClose={() => setShowPerformanceModal(false)}
+        data={getPerformanceData()}
+        title={
+          currentMapContext.level === 'zones' ? 'Zone Wise Targets For 2025' : 
+          currentMapContext.level === 'orgs' ? `${currentMapContext.zone} Zone - Org District Targets For 2025` :
+          'Performance Targets For 2025'
+        }
+        grandTotal={getGrandTotal()}
+        isLoading={performanceLoading.isLoading}
+        error={performanceLoading.error}
+        onRetry={performanceLoading.retry}
       />
 
-      {/* Performance Modal - Mobile Optimized */}
-      {showPerformanceModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
-          <div className="bg-gray-900/95 backdrop-blur-md rounded-xl sm:rounded-2xl shadow-2xl border border-gray-700/50 max-w-6xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
-            {/* Modal Header - Mobile Optimized */}
-            <div className="flex items-center justify-between p-3 sm:p-6 border-b border-gray-700/50">
-              <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                <div className="p-1.5 sm:p-2 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex-shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-5 sm:h-5">
-                    <path d="M3 3v18h18"></path>
-                    <path d="m19 9-5 5-4-4-3 3"></path>
-                  </svg>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h2 className="text-lg sm:text-xl font-bold text-white truncate">
-                    {currentMapContext.level === 'zones' ? 'Zone Wise Targets For 2025' : 
-                     currentMapContext.level === 'orgs' ? `${currentMapContext.zone} Zone - Org District Targets For 2025` :
-                     'Performance Targets For 2025'}
-                  </h2>
-                  <p className="text-xs sm:text-sm text-gray-400 truncate">
-                    {currentMapContext.level === 'zones' ? 'Performance Analysis & Future Targets' : 
-                     currentMapContext.level === 'orgs' ? 'Org District Performance Analysis' :
-                     'Performance Analysis & Future Targets'}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowPerformanceModal(false)}
-                className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors touch-target flex-shrink-0"
-                title="Close Modal"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-5 sm:h-5">
-                  <path d="M18 6L6 18"></path>
-                  <path d="M6 6l12 12"></path>
-                </svg>
-              </button>
-        </div>
+      {/* Leadership Modal */}
+      <LeadershipModal
+        isOpen={showLeadershipModal}
+        onClose={() => setShowLeadershipModal(false)}
+        contacts={getContactData()}
+        title={(() => {
+          const level = currentMapContext.level;
+          if (level === 'zones') return 'Zone Leadership';
+          if (level === 'orgs') return `${currentMapContext.zone} Zone - Org District Contacts`;
+          if (level === 'acs') return `${currentMapContext.org} - AC Contacts`;
+          if (level === 'mandals') return `${currentMapContext.org} - Mandal Contacts`;
+          if (level === 'panchayats') return `${currentMapContext.mandal} - Local Body Contacts`;
+          return 'Contact Information';
+        })()}
+        isLoading={leadershipLoading.isLoading}
+        error={leadershipLoading.error}
+        onRetry={leadershipLoading.retry}
+      />
 
-            {/* Table Container */}
-            <div className="p-6 overflow-x-auto">
-              <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 overflow-hidden">
-                <table className="w-full">
-                  {/* Table Header */}
-                  <thead className="bg-gradient-to-r from-gray-800 to-gray-700">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-200 border-r border-gray-700/50">
-                        Zone Name
-                      </th>
-                      <th className="px-6 py-4 text-center text-sm font-semibold text-gray-200 border-r border-gray-700/50">
-                        <div className="flex flex-col">
-                          <span>2020 LSG</span>
-                          <div className="flex justify-between text-xs text-gray-400 mt-1">
-                            <span>VS</span>
-                            <span>Votes</span>
-      </div>
-                        </div>
-                      </th>
-                      <th className="px-6 py-4 text-center text-sm font-semibold text-gray-200 border-r border-gray-700/50">
-                        <div className="flex flex-col">
-                          <span>2024 GE</span>
-                          <div className="flex justify-between text-xs text-gray-400 mt-1">
-                            <span>VS</span>
-                            <span>Votes</span>
-                          </div>
-                        </div>
-                      </th>
-                      <th className="px-6 py-4 text-center text-sm font-semibold text-gray-200">
-                        <div className="flex flex-col">
-                          <span>2025 Target</span>
-                          <div className="flex justify-between text-xs text-gray-400 mt-1">
-                            <span>VS</span>
-                            <span>Votes</span>
-                          </div>
-                        </div>
-                      </th>
-                    </tr>
-                  </thead>
-
-                  {/* Table Body */}
-                  <tbody>
-                    {getPerformanceData().map((row: any, index: number) => (
-                      <tr key={row.name} className={`border-b border-gray-700/30 hover:bg-gray-700/20 transition-colors ${index % 2 === 0 ? 'bg-gray-800/20' : 'bg-gray-800/10'}`}>
-                        <td className="px-6 py-4 text-sm font-medium text-white border-r border-gray-700/30">
-                          {row.name}
-                        </td>
-                        <td className="px-6 py-4 text-sm border-r border-gray-700/30">
-                          <div className="flex justify-between items-center">
-                            <span className="text-orange-400 font-medium">{row.lsg2020.vs}</span>
-                            <span className="text-gray-300">{row.lsg2020.votes}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm border-r border-gray-700/30">
-                          <div className="flex justify-between items-center">
-                            <span className="text-blue-400 font-medium">{row.ge2024.vs}</span>
-                            <span className="text-gray-300">{row.ge2024.votes}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm">
-                          <div className="flex justify-between items-center">
-                            <span className="text-green-400 font-medium">{row.target2025.vs}</span>
-                            <span className="text-gray-300">{row.target2025.votes}</span>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-
-                  {/* Grand Total Row */}
-                  {getGrandTotal() && (
-                    <tfoot className="bg-gradient-to-r from-gray-700 to-gray-600">
-                      <tr>
-                        <td className="px-6 py-4 text-sm font-bold text-white border-r border-gray-600/50">
-                          Grand Total
-                        </td>
-                        <td className="px-6 py-4 text-sm border-r border-gray-600/50">
-                          <div className="flex justify-between items-center">
-                            <span className="text-orange-300 font-bold">{getGrandTotal()?.lsg2020.vs}</span>
-                            <span className="text-white font-medium">{getGrandTotal()?.lsg2020.votes}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm border-r border-gray-600/50">
-                          <div className="flex justify-between items-center">
-                            <span className="text-blue-300 font-bold">{getGrandTotal()?.ge2024.vs}</span>
-                            <span className="text-white font-medium">{getGrandTotal()?.ge2024.votes}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm">
-                          <div className="flex justify-between items-center">
-                            <span className="text-green-300 font-bold">{getGrandTotal()?.target2025.vs}</span>
-                            <span className="text-white font-medium">{getGrandTotal()?.target2025.votes}</span>
-                          </div>
-                        </td>
-                      </tr>
-                    </tfoot>
-                  )}
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Leadership Modal - Mobile Optimized */}
-      {showLeadershipModal && (
+      {/* OLD LEADERSHIP MODAL - TO BE REMOVED */}
+      {false && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
           <div className="bg-gray-900/95 backdrop-blur-md rounded-xl sm:rounded-2xl shadow-2xl border border-gray-700/50 max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
             {/* Modal Header - Mobile Optimized */}
@@ -1549,173 +1531,24 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
         </div>
         )}
 
-      {/* Target Modal - Mobile Optimized */}
-      {showTargetModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
-          <div className="bg-gray-900/95 backdrop-blur-md rounded-xl sm:rounded-2xl shadow-2xl border border-gray-700/50 max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
-            {/* Modal Header - Mobile Optimized */}
-            <div className="flex items-center justify-between p-3 sm:p-6 border-b border-gray-700/50">
-              <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                <div className="p-1.5 sm:p-2 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg flex-shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white sm:w-6 sm:h-6">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <circle cx="12" cy="12" r="6"></circle>
-                    <circle cx="12" cy="12" r="2"></circle>
-                  </svg>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h2 className="text-lg sm:text-2xl font-bold text-white truncate">
-                    {(() => {
-                      const level = currentMapContext.level;
-                      if (level === 'zones') return 'Zone Level Targets';
-                      if (level === 'orgs') return `Org District Targets - ${currentMapContext.zone}`;
-                      if (level === 'acs') return `AC Targets - ${currentMapContext.org}`;
-                      if (level === 'mandals') return `Mandal Targets - ${currentMapContext.ac}`;
-                      return 'Target Overview';
-                    })()}
-                  </h2>
-                  <p className="text-xs sm:text-sm text-gray-400 truncate">LSG Election Targets for 2025</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowTargetModal(false)}
-                className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors touch-target flex-shrink-0"
-                title="Close Modal"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-              {(() => {
-                const targetData = getTargetData();
-                return Array.isArray(targetData) && targetData.length > 0;
-              })() ? (
-                <div className="space-y-6">
-                  {/* Dynamic Target Table */}
-                  <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 overflow-hidden">
-                    <div className="px-4 py-2 bg-gradient-to-r from-purple-600/20 to-purple-500/20 border-b border-gray-700/50">
-                      <p className="text-sm text-purple-300">
-                        📊 <strong>Target Data:</strong> {(() => {
-                          const level = currentMapContext.level;
-                          if (level === 'zones') return 'Zone-level targets across Kerala';
-                          if (level === 'orgs') return `Org District targets for ${currentMapContext.zone} zone`;
-                          if (level === 'acs') return `AC targets for ${currentMapContext.org} org district`;
-                          if (level === 'mandals') return `Mandal targets for ${currentMapContext.ac} AC`;
-                          return 'Target overview';
-                        })()} 
-                      </p>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="bg-gradient-to-r from-gray-700/50 to-gray-600/50">
-                          <tr>
-                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 uppercase tracking-wider">
-                              {(() => {
-                                const level = currentMapContext.level;
-                                if (level === 'zones') return 'Zone';
-                                if (level === 'orgs') return 'Org District';
-                                if (level === 'acs') return 'Assembly Constituency';
-                                if (level === 'mandals') return 'Mandal';
-                                return 'Name';
-                              })()}
-                            </th>
-                            <th className="px-4 py-3 text-center text-sm font-semibold text-blue-300 uppercase tracking-wider" colSpan={3}>
-                              Panchayat
-                            </th>
-                            <th className="px-4 py-3 text-center text-sm font-semibold text-green-300 uppercase tracking-wider" colSpan={3}>
-                              Municipality
-                            </th>
-                            <th className="px-4 py-3 text-center text-sm font-semibold text-orange-300 uppercase tracking-wider" colSpan={3}>
-                              Corporation
-                            </th>
-                          </tr>
-                          <tr className="bg-gray-700/30">
-                            <th className="px-4 py-2 text-sm text-gray-400"></th>
-                            <th className="px-2 py-2 text-xs text-blue-400">Total</th>
-                            <th className="px-2 py-2 text-xs text-blue-400">Win</th>
-                            <th className="px-2 py-2 text-xs text-blue-400">Opp</th>
-                            <th className="px-2 py-2 text-xs text-green-400">Total</th>
-                            <th className="px-2 py-2 text-xs text-green-400">Win</th>
-                            <th className="px-2 py-2 text-xs text-green-400">Opp</th>
-                            <th className="px-2 py-2 text-xs text-orange-400">Total</th>
-                            <th className="px-2 py-2 text-xs text-orange-400">Win</th>
-                            <th className="px-2 py-2 text-xs text-orange-400">Opp</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {getTargetData().map((item: any, index: number) => (
-                            <tr key={index} className="hover:bg-gray-700/30 transition-colors border-b border-gray-700/50">
-                              <td className="px-4 py-3 text-white font-medium">{item.name}</td>
-                              <td className="px-2 py-3 text-center text-blue-300">{item.lsgTotal}</td>
-                              <td className="px-2 py-3 text-center text-green-400 font-semibold">{item.lsgTargetWin}</td>
-                              <td className="px-2 py-3 text-center text-red-400">{item.lsgTargetOpposition}</td>
-                              <td className="px-2 py-3 text-center text-green-300">{item.municipalityTotal}</td>
-                              <td className="px-2 py-3 text-center text-green-400 font-semibold">{item.municipalityTargetWin}</td>
-                              <td className="px-2 py-3 text-center text-red-400">{item.municipalityTargetOpposition}</td>
-                              <td className="px-2 py-3 text-center text-orange-300">{item.corporationTotal}</td>
-                              <td className="px-2 py-3 text-center text-green-400 font-semibold">{item.corporationTargetWin}</td>
-                              <td className="px-2 py-3 text-center text-red-400">{item.corporationTargetOpposition}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot className="bg-gradient-to-r from-gray-700/50 to-gray-600/50">
-                          <tr>
-                            <td className="px-4 py-3 text-white font-bold">Total</td>
-                            <td className="px-2 py-3 text-center text-blue-300 font-bold">
-                              {getTargetData().reduce((sum: number, item: any) => sum + (item.lsgTotal || 0), 0)}
-                            </td>
-                            <td className="px-2 py-3 text-center text-green-400 font-bold">
-                              {getTargetData().reduce((sum: number, item: any) => sum + (item.lsgTargetWin || 0), 0)}
-                            </td>
-                            <td className="px-2 py-3 text-center text-red-400 font-bold">
-                              {getTargetData().reduce((sum: number, item: any) => sum + (item.lsgTargetOpposition || 0), 0)}
-                            </td>
-                            <td className="px-2 py-3 text-center text-green-300 font-bold">
-                              {getTargetData().reduce((sum: number, item: any) => sum + (item.municipalityTotal || 0), 0)}
-                            </td>
-                            <td className="px-2 py-3 text-center text-green-400 font-bold">
-                              {getTargetData().reduce((sum: number, item: any) => sum + (item.municipalityTargetWin || 0), 0)}
-                            </td>
-                            <td className="px-2 py-3 text-center text-red-400 font-bold">
-                              {getTargetData().reduce((sum: number, item: any) => sum + (item.municipalityTargetOpposition || 0), 0)}
-                            </td>
-                            <td className="px-2 py-3 text-center text-orange-300 font-bold">
-                              {getTargetData().reduce((sum: number, item: any) => sum + (item.corporationTotal || 0), 0)}
-                            </td>
-                            <td className="px-2 py-3 text-center text-green-400 font-bold">
-                              {getTargetData().reduce((sum: number, item: any) => sum + (item.corporationTargetWin || 0), 0)}
-                            </td>
-                            <td className="px-2 py-3 text-center text-red-400 font-bold">
-                              {getTargetData().reduce((sum: number, item: any) => sum + (item.corporationTargetOpposition || 0), 0)}
-                            </td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <div className="p-4 bg-gray-500/20 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400">
-                      <circle cx="12" cy="12" r="10"></circle>
-                      <circle cx="12" cy="12" r="6"></circle>
-                      <circle cx="12" cy="12" r="2"></circle>
-                    </svg>
-                  </div>
-                  <h3 className="text-xl font-semibold text-white mb-2">No Target Data Available</h3>
-                  <p className="text-gray-400">Please navigate to a location to view target information.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Target Modal */}
+      <TargetModal
+        isOpen={showTargetModal}
+        onClose={() => setShowTargetModal(false)}
+        data={getTransformedTargetData()}
+        title={(() => {
+          const level = currentMapContext.level;
+          if (level === 'zones') return 'Zone Level Targets';
+          if (level === 'orgs') return `Org District Targets - ${currentMapContext.zone}`;
+          if (level === 'acs') return `AC Targets - ${currentMapContext.org}`;
+          if (level === 'mandals') return `Mandal Targets - ${currentMapContext.ac}`;
+          return 'Target Overview';
+        })()}
+        showGrandTotal={true}
+        isLoading={targetLoading.isLoading}
+        error={targetLoading.error}
+        onRetry={targetLoading.retry}
+      />
 
     </div>
   );
