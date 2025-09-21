@@ -15,12 +15,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   // Local whitelist fallback for phone/password validation
-  const localWhitelist: Array<{ phone: string; password: string }> = [
-    { phone: '8921697857', password: '8921' },
-    { phone: '9745895354', password: '1234' },
-    { phone: '9876543210', password: 'admin123' },
-    { phone: '9876543211', password: 'user123' },
-    { phone: '9876543212', password: 'user123' }
+  const localWhitelist: Array<{ phone: string; password: string; name: string }> = [
+    { phone: '9745895354', password: '1234', name: 'Dev' },
+    { phone: '9126868745', password: '1234', name: 'Ravishankar' }
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -44,21 +41,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     try {
       // Check CSV whitelist first
       const csvList = await fetchWhitelistCsv();
-      const isCsvWhitelisted = csvList.some(
+      const csvUser = csvList.find(
         (entry) => entry.phone === phoneNumber && entry.password === password
       );
-      if (isCsvWhitelisted) {
-        saveAuthSession(phoneNumber);
+      if (csvUser) {
+        saveAuthSession(phoneNumber, csvUser.full_name);
         onLogin(phoneNumber);
         return;
       }
 
       // Then check local in-code whitelist as a fallback
-      const isLocallyWhitelisted = localWhitelist.some(
+      const localUser = localWhitelist.find(
         (entry) => entry.phone === phoneNumber && entry.password === password
       );
-      if (isLocallyWhitelisted) {
-        saveAuthSession(phoneNumber);
+      if (localUser) {
+        saveAuthSession(phoneNumber, localUser.name);
         onLogin(phoneNumber);
         return;
       }

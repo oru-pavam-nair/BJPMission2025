@@ -2,6 +2,7 @@
 
 export interface AuthSession {
   phoneNumber: string;
+  userName: string;
   loginTime: number;
   isAuthenticated: boolean;
 }
@@ -12,9 +13,10 @@ const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 /**
  * Save authentication session to localStorage
  */
-export function saveAuthSession(phoneNumber: string): void {
+export function saveAuthSession(phoneNumber: string, userName: string = 'User'): void {
   const session: AuthSession = {
     phoneNumber,
+    userName,
     loginTime: Date.now(),
     isAuthenticated: true
   };
@@ -44,6 +46,13 @@ export function getAuthSession(): AuthSession | null {
       return null;
     }
     
+    // Handle legacy sessions without userName field
+    if (!session.userName) {
+      // Clear old session and force re-login to get proper userName
+      clearAuthSession();
+      return null;
+    }
+    
     return session;
   } catch (error) {
     console.error('Failed to get auth session:', error);
@@ -66,6 +75,14 @@ export function isAuthenticated(): boolean {
 export function getCurrentUser(): string | null {
   const session = getAuthSession();
   return session?.phoneNumber || null;
+}
+
+/**
+ * Get current user name from session
+ */
+export function getCurrentUserName(): string | null {
+  const session = getAuthSession();
+  return session?.userName || null;
 }
 
 /**

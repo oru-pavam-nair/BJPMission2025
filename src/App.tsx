@@ -141,7 +141,7 @@ const App: React.FC = () => {
           <LoginPage onLogin={handleLogin} />
         ) : (
           // Show map application if authenticated
-          <div className="relative min-h-screen bg-slate-900">
+          <div className="relative min-h-screen bg-slate-900 overflow-hidden">
             {/* Navigation Header */}
             <Navigation 
               currentUser={currentUser}
@@ -151,12 +151,17 @@ const App: React.FC = () => {
             {/* Main Map Component - Full Screen with proper top spacing for navigation */}
             <main 
               id="main-content"
-              className="pt-16 sm:pt-16 w-full" 
-              style={{ height: 'calc(100vh - 64px)' }}
+              className="pt-16 w-full bg-slate-900" 
+              style={{ 
+                height: 'calc(100vh - 64px)',
+                minHeight: 'calc(100vh - 64px)'
+              }}
               role="main"
               aria-label="Kerala BJP Dashboard Map Interface"
             >
-              <IntegratedKeralaMap />
+              <div className="w-full h-full">
+                <IntegratedKeralaMap />
+              </div>
             </main>
           </div>
         )}

@@ -313,6 +313,8 @@
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
+      pointer-events: none !important;
+      z-index: 1000 !important;
     }
 
     .lbl-zone { 
@@ -321,28 +323,49 @@
       color: var(--text-accent);
       text-transform: uppercase;
       letter-spacing: 0.1em;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
     }
     .lbl-org { 
       font-size: 0.875rem; 
       font-weight: 700; 
       color: var(--text-primary);
       letter-spacing: 0.05em;
+      text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.7);
     }
     .lbl-ac { 
       font-size: 0.8125rem; 
       font-weight: 600;
       color: var(--text-secondary);
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);
     }
     .lbl-mandal { 
       font-size: 0.8125rem; 
       font-weight: 700;
       color: var(--primary);
-      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+      text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
     }
     .lbl-pan { 
       font-size: 0.75rem; 
       font-weight: 500;
       color: var(--text-muted);
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Responsive label sizing */
+    @media (max-width: 768px) {
+      .lbl-zone { font-size: 0.875rem; }
+      .lbl-org { font-size: 0.8125rem; }
+      .lbl-ac { font-size: 0.75rem; }
+      .lbl-mandal { font-size: 0.75rem; }
+      .lbl-pan { font-size: 0.6875rem; }
+    }
+    
+    @media (max-width: 480px) {
+      .lbl-zone { font-size: 0.8125rem; }
+      .lbl-org { font-size: 0.75rem; }
+      .lbl-ac { font-size: 0.6875rem; }
+      .lbl-mandal { font-size: 0.6875rem; }
+      .lbl-pan { font-size: 0.625rem; }
     }
 
     /* TARGET VISUALIZATION - BLINKING ANIMATIONS */
@@ -640,7 +663,40 @@
     <button id="backBtn" class="btn btn-outline" style="display:none;">⬅ Back</button>
     <button id="homeBtn" class="btn btn-primary">🏠 Home</button>
   </div>
-  <div id="map"></div>
+  
+  <!-- Breadcrumb Navigation Flowchart -->
+  <div id="breadcrumb" style="
+    position: fixed; 
+    top: 70px; 
+    left: 20px; 
+    right: 20px; 
+    height: 50px;
+    background: rgba(15, 23, 42, 0.95); 
+    border-radius: 12px; 
+    padding: 12px 20px; 
+    backdrop-filter: blur(15px); 
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: #E2E8F0;
+    overflow-x: auto;
+    white-space: nowrap;
+  ">
+    <span id="breadcrumbPath">Kerala → Zones</span>
+  </div>
+  
+  <!-- Clean left-side zoom controls -->
+  <div style="position: fixed; top: 50%; left: 20px; transform: translateY(-50%); z-index: 1000;">
+    <div style="background: rgba(15, 23, 42, 0.9); border-radius: 8px; padding: 8px; backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1);">
+      <button id="zoomInBtn" class="btn btn-outline" title="Zoom In" style="width: 40px; height: 40px; margin-bottom: 6px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold;">+</button>
+      <button id="zoomOutBtn" class="btn btn-outline" title="Zoom Out" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold;">−</button>
+    </div>
+  </div>
+  <div id="map" style="padding-top: 130px;"></div>
   <div class="legend"><strong id="legendTitle">Zones</strong><div id="legendItems"></div><div id="legendNote" class="warn"></div></div>
 
   <!-- Detailed Modal Popup -->
@@ -992,58 +1048,484 @@
 
     const labelLayer = L.layerGroup().addTo(map);
     const clearLabels=()=>labelLayer.clearLayers();
+    
+    // Global variable to track current layer for responsive label updates
+    let currentLayer = null;
+    
+    // Map-wide label distribution system
+    let mapGridZones = [];
+    let occupiedZones = new Set();
+    
     function addLabels(layer, field, cls){
+      console.log(`🏷️ Adding labels with field: ${field}, class: ${cls}`);
+      // Clear previous labels
+      const labelPositions = [];
+      
+      // Collect all features with their properties
+      const labelsToPlace = [];
+      
       layer.eachLayer(l=>{
         try{
-          // Calculate the best center point for text placement
-          let pt;
-          try {
-            // First try centroid (mathematical center)
-            const centroid = turf.centroid(l.feature);
-            // Check if centroid is inside the polygon
-            if (turf.booleanPointInPolygon(centroid, l.feature)) {
-              pt = centroid.geometry.coordinates.reverse();
-            } else {
-              // Fallback to point on surface if centroid is outside
-              pt = turf.pointOnFeature(l.feature).geometry.coordinates.reverse();
-            }
-          } catch(e) {
-            // Final fallback to point on feature
-            pt = turf.pointOnFeature(l.feature).geometry.coordinates.reverse();
-          }
-          
           const name = l.feature.properties[field];
           if(name){ 
-            // Enhanced label with better styling for center positioning
-            const labelHtml = `
-              <div class="lbl ${cls}" style="
-                transform: translate(-50%, -50%);
-                text-align: center;
-                white-space: nowrap;
-                background: rgba(0, 0, 0, 0.7);
-                padding: 4px 8px;
-                border-radius: 4px;
-                border: 1px solid rgba(255, 255, 255, 0.3);
-                backdrop-filter: blur(4px);
-                font-weight: 600;
-                letter-spacing: 0.5px;
-                min-width: fit-content;
-                display: inline-block;
-              ">${name}</div>
-            `;
-            labelLayer.addLayer(L.marker(pt,{
-              icon: L.divIcon({
-                className: 'centered-label',
-                html: labelHtml,
-                iconSize: [0, 0], // Let content determine size
-                iconAnchor: [0, 0] // No offset since we use CSS transform
-              })
-            }));
+            console.log(`📍 Found feature to label: ${name}`);
+            // Calculate the best center point for text placement
+            let pt;
+            try {
+              const centroid = turf.centroid(l.feature);
+              if (turf.booleanPointInPolygon(centroid, l.feature)) {
+                pt = centroid.geometry.coordinates.reverse();
+              } else {
+                pt = turf.pointOnFeature(l.feature).geometry.coordinates.reverse();
+              }
+            } catch(e) {
+              pt = turf.pointOnFeature(l.feature).geometry.coordinates.reverse();
+            }
+            
+            labelsToPlace.push({
+              name: name,
+              position: pt,
+              feature: l.feature,
+              cls: cls,
+              area: calculateFeatureArea(l.feature)
+            });
+          } else {
+            console.warn(`❌ No name found for field '${field}' in feature:`, l.feature.properties);
           }
         }catch(e){
           console.warn('Label placement failed for feature:', e);
         }
       });
+      
+      console.log(`📊 Total labels to place: ${labelsToPlace.length}`);
+      
+      // Sort by area (larger areas get priority)
+      labelsToPlace.sort((a, b) => b.area - a.area);
+      
+      // Place labels with simple collision detection
+      labelsToPlace.forEach((labelData, index) => {
+        const { name, position, cls } = labelData;
+        
+        console.log(`🎯 Placing label ${index + 1}/${labelsToPlace.length}: ${name}`);
+        
+        // Create multi-line text for long names
+        const displayText = createMultiLineText(name);
+        
+        // Find a position that doesn't collide
+        const finalPosition = findNonCollidingPosition(position, displayText, cls, labelPositions);
+        
+        if (finalPosition) {
+          // Create enhanced label with multi-line support
+          const labelHtml = `
+            <div class="lbl ${cls}" style="
+              transform: translate(-50%, -50%);
+              text-align: center;
+              background: rgba(0, 0, 0, 0.85);
+              padding: 4px 8px;
+              border-radius: 4px;
+              border: 1px solid rgba(255, 255, 255, 0.3);
+              backdrop-filter: blur(6px);
+              font-weight: 600;
+              letter-spacing: 0.3px;
+              line-height: 1.1;
+              min-width: fit-content;
+              display: inline-block;
+              box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+              font-size: ${getFontSizeForClass(cls)};
+              color: ${getColorForClass(cls)};
+              z-index: 1000;
+              pointer-events: none;
+              white-space: pre-line;
+            ">${displayText}</div>
+          `;
+          
+          labelLayer.addLayer(L.marker(finalPosition,{
+            icon: L.divIcon({
+              className: 'compact-label',
+              html: labelHtml,
+              iconSize: [0, 0],
+              iconAnchor: [0, 0]
+            })
+          }));
+          
+          console.log(`✅ Successfully placed label: ${name} at [${finalPosition[0]}, ${finalPosition[1]}]`);
+          
+          // Store position for collision detection
+          labelPositions.push({
+            lat: finalPosition[0],
+            lng: finalPosition[1],
+            name: name,
+            width: estimateMultiLineWidth(displayText, cls),
+            height: estimateMultiLineHeight(displayText, cls)
+          });
+        } else {
+          console.warn(`❌ Failed to place label: ${name}`);
+        }
+      });
+      
+      console.log(`🎉 Finished placing labels. Total placed: ${labelPositions.length}/${labelsToPlace.length}`);
+    }
+    
+    // Create multi-line text for long names
+    function createMultiLineText(name) {
+      // Don't split short names or single words
+      if (name.length <= 12) {
+        return name;
+      }
+      
+      // Split long names intelligently
+      const words = name.split(' ');
+      
+      if (words.length === 1) {
+        // Single long word - only split if VERY long (>15 characters)
+        if (name.length > 15) {
+          const mid = Math.ceil(name.length / 2);
+          return name.substring(0, mid) + '\n' + name.substring(mid);
+        } else {
+          return name; // Keep single word intact
+        }
+      } else if (words.length === 2) {
+        // Two words - only split if combined length is very long
+        if (name.length > 15) {
+          return words.join('\n');
+        } else {
+          return name; // Keep on one line
+        }
+      } else {
+        // Multiple words - split roughly in half only if long
+        if (name.length > 18) {
+          const mid = Math.ceil(words.length / 2);
+          const firstLine = words.slice(0, mid).join(' ');
+          const secondLine = words.slice(mid).join(' ');
+          return firstLine + '\n' + secondLine;
+        } else {
+          return name; // Keep on one line
+        }
+      }
+    }
+    
+    // Find a position that doesn't collide with existing labels
+    function findNonCollidingPosition(originalPos, text, cls, existingPositions) {
+      const width = estimateMultiLineWidth(text, cls);
+      const height = estimateMultiLineHeight(text, cls);
+      
+      // Try original position first
+      if (!hasCollisionAt(originalPos, width, height, existingPositions)) {
+        return originalPos;
+      }
+      
+      // Try reasonable offsets around original position
+      const offsets = [
+        [0.01, 0],      // North
+        [-0.01, 0],     // South  
+        [0, 0.01],      // East
+        [0, -0.01],     // West
+        [0.01, 0.01],   // Northeast
+        [0.01, -0.01],  // Northwest
+        [-0.01, 0.01],  // Southeast
+        [-0.01, -0.01], // Southwest
+        [0.02, 0],      // Further north
+        [-0.02, 0],     // Further south
+        [0, 0.02],      // Further east
+        [0, -0.02],     // Further west
+      ];
+      
+      for (const [latOffset, lngOffset] of offsets) {
+        const testPos = [originalPos[0] + latOffset, originalPos[1] + lngOffset];
+        
+        if (!hasCollisionAt(testPos, width, height, existingPositions)) {
+          return testPos;
+        }
+      }
+      
+      // If still no position found, use original position anyway
+      console.warn(`Could not find non-colliding position for label: ${text}`);
+      return originalPos;
+    }
+    
+    // Check collision at specific position
+    function hasCollisionAt(position, width, height, existingPositions) {
+      const [lat, lng] = position;
+      
+      return existingPositions.some(existing => {
+        const latDiff = Math.abs(lat - existing.lat);
+        const lngDiff = Math.abs(lng - existing.lng);
+        
+        // Reasonable minimum safe distance between labels
+        const minLatDistance = Math.max(0.008, (height + existing.height) * 0.00008); // Convert to degrees
+        const minLngDistance = Math.max(0.008, (width + existing.width) * 0.00008);   // Convert to degrees
+        
+        return latDiff < minLatDistance && lngDiff < minLngDistance;
+      });
+    }
+    
+    // Estimate width of multi-line text
+    function estimateMultiLineWidth(text, cls) {
+      const lines = text.split('\n');
+      const longestLine = lines.reduce((longest, line) => 
+        line.length > longest.length ? line : longest, '');
+      return estimateLabelWidth(longestLine, cls);
+    }
+    
+    // Estimate height of multi-line text
+    function estimateMultiLineHeight(text, cls) {
+      const lines = text.split('\n');
+      const singleLineHeight = estimateLabelHeight(cls);
+      return singleLineHeight * lines.length * 1.1; // Add 10% for line spacing
+    }
+    
+    // Calculate zone priority (center zones have lower priority, edges have higher)
+    function calculateZonePriority(row, col, totalRows, totalCols) {
+      const centerRow = totalRows / 2;
+      const centerCol = totalCols / 2;
+      
+      // Distance from center (normalized)
+      const distFromCenter = Math.sqrt(
+        Math.pow((row - centerRow) / totalRows, 2) + 
+        Math.pow((col - centerCol) / totalCols, 2)
+      );
+      
+      // Higher priority for zones away from center (edges and corners)
+      return distFromCenter;
+    }
+    
+    // Find the best zone for a label considering distance, priority, and balance
+    function findBestZoneForLabel(originalPos, name, cls, featureBounds, labelIndex) {
+      const labelWidth = estimateLabelWidth(name, cls);
+      const labelHeight = estimateLabelHeight(cls);
+      
+      // Filter available zones and prioritize those close to original position
+      const availableZones = mapGridZones.filter(zone => !occupiedZones.has(zone.id));
+      
+      if (availableZones.length === 0) {
+        // If no zones available, use original position
+        return { lat: originalPos[0], lng: originalPos[1], id: 'fallback' };
+      }
+      
+      // Score each zone based on multiple factors with heavy distance weighting
+      const scoredZones = availableZones.map(zone => {
+        const distance = calculateDistance(originalPos, [zone.lat, zone.lng]);
+        
+        // Heavily penalize distant positions (geographic accuracy is most important)
+        if (distance > 0.03) { // If more than ~3km away, heavily penalize
+          return { ...zone, score: 1000 + distance * 100 }; // Very high score = low priority
+        }
+        
+        // Check if zone is within reasonable distance of the feature
+        const withinFeature = isPointNearFeature([zone.lat, zone.lng], featureBounds);
+        
+        // Calculate final score (lower is better) with distance as primary factor
+        let score = distance * 0.7 + // Distance weight (70%) - much higher priority
+                   (withinFeature ? 0 : 0.2) + // Within feature bonus (20%)
+                   (1 - zone.priority) * 0.1; // Priority weight (10%) - edge zones
+        
+        return { ...zone, score };
+      });
+      
+      // Sort by score and return the best zone
+      scoredZones.sort((a, b) => a.score - b.score);
+      return scoredZones[0];
+    }
+    
+    // Calculate balance factor to spread labels across the map
+    function calculateBalanceFactor(zone, labelIndex) {
+      const totalLabels = mapGridZones.length;
+      const preferredQuadrant = labelIndex % 4; // 0=NW, 1=NE, 2=SW, 3=SE
+      
+      const isInPreferredQuadrant = (
+        (preferredQuadrant === 0 && zone.row < mapGridZones.length/8 && zone.col < mapGridZones.length/8) ||
+        (preferredQuadrant === 1 && zone.row < mapGridZones.length/8 && zone.col >= mapGridZones.length/8) ||
+        (preferredQuadrant === 2 && zone.row >= mapGridZones.length/8 && zone.col < mapGridZones.length/8) ||
+        (preferredQuadrant === 3 && zone.row >= mapGridZones.length/8 && zone.col >= mapGridZones.length/8)
+      );
+      
+      return isInPreferredQuadrant ? 0 : 0.5; // Bonus for preferred quadrant
+    }
+    
+    // Check if a point is near a feature's bounds
+    function isPointNearFeature(point, featureBounds) {
+      const [lat, lng] = point;
+      const margin = 0.02; // ~2km margin
+      
+      return lat >= (featureBounds.south - margin) &&
+             lat <= (featureBounds.north + margin) &&
+             lng >= (featureBounds.west - margin) &&
+             lng <= (featureBounds.east + margin);
+    }
+    
+    // Calculate feature area for prioritization
+    function calculateFeatureArea(feature) {
+      try {
+        return turf.area(feature);
+      } catch(e) {
+        return 0;
+      }
+    }
+    
+    // Calculate feature bounds
+    function calculateFeatureBounds(feature) {
+      try {
+        const bbox = turf.bbox(feature);
+        return {
+          west: bbox[0],
+          south: bbox[1],
+          east: bbox[2],
+          north: bbox[3]
+        };
+      } catch(e) {
+        return { west: 0, south: 0, east: 0, north: 0 };
+      }
+    }
+    
+    // Get the actual bounds of Kerala map features instead of viewport bounds
+    function getKeralaMapBounds(layer) {
+      let minLat = Infinity, maxLat = -Infinity;
+      let minLng = Infinity, maxLng = -Infinity;
+      
+      layer.eachLayer(l => {
+        try {
+          const bounds = l.getBounds();
+          minLat = Math.min(minLat, bounds.getSouth());
+          maxLat = Math.max(maxLat, bounds.getNorth());
+          minLng = Math.min(minLng, bounds.getWest());
+          maxLng = Math.max(maxLng, bounds.getEast());
+        } catch(e) {
+          // Skip if bounds calculation fails
+        }
+      });
+      
+      // Add a small buffer around the actual features (but keep it reasonable)
+      const latBuffer = (maxLat - minLat) * 0.1; // 10% buffer
+      const lngBuffer = (maxLng - minLng) * 0.1; // 10% buffer
+      
+      return {
+        south: minLat - latBuffer,
+        north: maxLat + latBuffer,
+        west: minLng - lngBuffer,
+        east: maxLng + lngBuffer
+      };
+    }
+    
+    // Calculate distance between two points
+    function calculateDistance(pos1, pos2) {
+      const [lat1, lng1] = pos1;
+      const [lat2, lng2] = pos2;
+      
+      return Math.sqrt(
+        Math.pow(lat2 - lat1, 2) + 
+        Math.pow(lng2 - lng1, 2)
+      );
+    }
+    
+    // Estimate label width based on text and class (responsive)
+    function estimateLabelWidth(text, cls) {
+      const screenWidth = window.innerWidth;
+      
+      let charWidth;
+      if (screenWidth <= 480) {
+        charWidth = {
+          'lbl-zone': 10,
+          'lbl-org': 9,
+          'lbl-ac': 8,
+          'lbl-mandal': 8,
+          'lbl-pan': 7
+        };
+      } else if (screenWidth <= 768) {
+        charWidth = {
+          'lbl-zone': 11,
+          'lbl-org': 9.5,
+          'lbl-ac': 8.5,
+          'lbl-mandal': 8.5,
+          'lbl-pan': 7.5
+        };
+      } else {
+        charWidth = {
+          'lbl-zone': 12,
+          'lbl-org': 10,
+          'lbl-ac': 9,
+          'lbl-mandal': 9,
+          'lbl-pan': 8
+        };
+      }
+      return (text.length * (charWidth[cls] || 10)) + 20; // padding
+    }
+    
+    // Estimate label height based on class (responsive)
+    function estimateLabelHeight(cls) {
+      const screenWidth = window.innerWidth;
+      
+      let heights;
+      if (screenWidth <= 480) {
+        heights = {
+          'lbl-zone': 26,
+          'lbl-org': 22,
+          'lbl-ac': 20,
+          'lbl-mandal': 20,
+          'lbl-pan': 18
+        };
+      } else if (screenWidth <= 768) {
+        heights = {
+          'lbl-zone': 28,
+          'lbl-org': 24,
+          'lbl-ac': 22,
+          'lbl-mandal': 22,
+          'lbl-pan': 20
+        };
+      } else {
+        heights = {
+          'lbl-zone': 30,
+          'lbl-org': 26,
+          'lbl-ac': 24,
+          'lbl-mandal': 24,
+          'lbl-pan': 22
+        };
+      }
+      return heights[cls] || 24;
+    }
+    
+    // Get font size for class (responsive)
+    function getFontSizeForClass(cls) {
+      const screenWidth = window.innerWidth;
+      
+      let sizes;
+      if (screenWidth <= 480) {
+        sizes = {
+          'lbl-zone': '0.5rem',      // Much smaller
+          'lbl-org': '0.45rem',     
+          'lbl-ac': '0.4rem',       
+          'lbl-mandal': '0.4rem',   
+          'lbl-pan': '0.35rem'      
+        };
+      } else if (screenWidth <= 768) {
+        sizes = {
+          'lbl-zone': '0.55rem',     // Much smaller
+          'lbl-org': '0.5rem',      
+          'lbl-ac': '0.45rem',      
+          'lbl-mandal': '0.45rem',  
+          'lbl-pan': '0.4rem'       
+        };
+      } else {
+        sizes = {
+          'lbl-zone': '0.6rem',      // Much smaller
+          'lbl-org': '0.55rem',     
+          'lbl-ac': '0.5rem',       
+          'lbl-mandal': '0.5rem',   
+          'lbl-pan': '0.45rem'      
+        };
+      }
+      return sizes[cls] || '0.5rem';
+    }
+    
+    // Get color for class
+    function getColorForClass(cls) {
+      const colors = {
+        'lbl-zone': '#FFD700',
+        'lbl-org': '#F8FAFC',
+        'lbl-ac': '#CBD5E1',
+        'lbl-mandal': '#FF6B35',
+        'lbl-pan': '#94A3B8'
+      };
+      return colors[cls] || '#F8FAFC';
     }
 
     function filterChildrenSmart(gj,parentF,parentField){
@@ -1398,16 +1880,52 @@ Trikkarippur,Neeleshwaram
       try{ map.fitBounds(layer.getBounds()); }catch(e){}
     }
 
+    // Update breadcrumb navigation
+    function updateBreadcrumb() {
+      const breadcrumbEl = document.getElementById('breadcrumbPath');
+      let path = ['Kerala'];
+      
+      if (ctx.level === 'zones') {
+        path.push('Zones');
+      } else if (ctx.level === 'orgs') {
+        path.push('Zones', ctx.zone);
+      } else if (ctx.level === 'acs') {
+        path.push('Zones', ctx.zone, 'Assembly Constituencies');
+      } else if (ctx.level === 'mandals') {
+        path.push('Zones', ctx.zone, ctx.org, 'Mandals');
+      } else if (ctx.level === 'panchayats') {
+        path.push('Zones', ctx.zone, ctx.org, ctx.ac, 'Panchayats');
+      } else if (ctx.level === 'wards') {
+        path.push('Zones', ctx.zone, ctx.org, ctx.ac, 'Wards');
+      }
+      
+      breadcrumbEl.textContent = path.join(' → ');
+    }
+
     function showZones(){
-      clearLayers(); clearLabels(); ctx.level='zones'; ctx.zone=ctx.org=ctx.ac=ctx.mandal=null;
-      titleEl.textContent="Kerala — Zones"; legendTitle.textContent="Zones";
+      // Clear existing layers and labels
+      clearLayers(); 
+      clearLabels(); 
+      
+      // Update context
+      ctx.level='zones'; 
+      ctx.zone=ctx.org=ctx.ac=ctx.mandal=null;
+      titleEl.textContent="Kerala — Zones"; 
+      legendTitle.textContent="Zones";
+      updateBreadcrumb();
+      
+      console.log('🗺️ Loading zones layer...');
       const layer=L.geoJSON(zonesGJ,{
         style:f=>({color:"#111",weight:1,fillColor:colorFor(prop(f,KEYS.zone)),fillOpacity:0.8}),
         onEachFeature:(f,l)=>l.on('click',()=>showOrgs(f))
       }).addTo(map);
+      currentLayer = layer; // Store reference for responsive updates
       safeFit(layer);
       buildLegend([...new Set(zonesGJ.features.map(f=>prop(f,KEYS.zone)))]);
+      
+      console.log('🏷️ Adding zone labels...');
       addLabels(layer, KEYS.zone, 'lbl-zone');
+      
       backBtn.style.display="none";
       
       // Notify parent of context change
@@ -1421,16 +1939,31 @@ Trikkarippur,Neeleshwaram
     }
 
     function showOrgs(zoneF){
-      clearLayers(); clearLabels(); ctx.level='orgs'; ctx.zone=zoneF; ctx.org=ctx.ac=ctx.mandal=null;
-      titleEl.textContent=`Kerala — ${prop(zoneF,KEYS.zone)} — Org Districts`; legendTitle.textContent="Org Districts";
+      // Clear existing layers and labels
+      clearLayers(); 
+      clearLabels(); 
+      
+      // Update context
+      ctx.level='orgs'; 
+      ctx.zone=prop(zoneF,KEYS.zone); 
+      ctx.org=ctx.ac=ctx.mandal=null;
+      titleEl.textContent=`Kerala — ${prop(zoneF,KEYS.zone)} — Org Districts`; 
+      legendTitle.textContent="Org Districts";
+      updateBreadcrumb();
+      
+      console.log('🗺️ Loading org districts layer...');
       const subset=filterChildrenSmart(orgGJ,zoneF,KEYS.zone);
       const layer=L.geoJSON(subset,{
         style:f=>({color:"#111",weight:1,fillColor:colorFor(prop(f,KEYS.org)),fillOpacity:0.8}),
         onEachFeature:(f,l)=>l.on('click',()=>showACs(f))
       }).addTo(map);
+      currentLayer = layer; // Store reference for responsive updates
       safeFit(layer);
       buildLegend([...new Set(subset.features.map(f=>prop(f,KEYS.org)))]);
+      
+      console.log('🏷️ Adding org labels...');
       addLabels(layer, KEYS.org, 'lbl-org');
+      
       backBtn.style.display="inline-block";
       
       // Notify parent of context change
@@ -1444,207 +1977,250 @@ Trikkarippur,Neeleshwaram
     }
 
     function showACs(orgF){
-      clearLayers(); clearLabels(); ctx.level='acs'; ctx.org=orgF; ctx.ac=ctx.mandal=null;
-      titleEl.textContent=`Kerala — ${prop(ctx.zone,KEYS.zone)} — ${prop(orgF,KEYS.org)} — ACs`; legendTitle.textContent="Assembly Constituencies";
-      const subset=filterChildrenSmart(acGJ,orgF,KEYS.org);
-      const layer=L.geoJSON(subset,{
-        style:f=>({color:"#111",weight:1,fillColor:colorFor(prop(f,KEYS.ac)),fillOpacity:0.8}),
-        onEachFeature:(f,l)=>l.on('click',()=>showMandals(f))
-      }).addTo(map);
-      safeFit(layer);
-      buildLegend([...new Set(subset.features.map(f=>prop(f,KEYS.ac)))]);
-      addLabels(layer, KEYS.ac, 'lbl-ac');
+      // Clear existing layers and labels
+      clearLayers(); 
+      clearLabels(); 
       
-      // Notify parent of context change
-      if (window.parent !== window) {
-        window.parent.postMessage({
-          type: 'map-navigation',
-          action: 'context-change',
-          context: { 
-            level: 'acs', 
-            zone: prop(ctx.zone, KEYS.zone) || '', 
-            org: prop(orgF, KEYS.org) || '', 
-            ac: '' 
-          }
-        }, '*');
-      }
+      // Update context
+      ctx.level='acs'; 
+      ctx.org=prop(orgF,KEYS.org); 
+      ctx.ac=ctx.mandal=null;
+      titleEl.textContent=`Kerala — ${ctx.zone} — ${prop(orgF,KEYS.org)} — ACs`; 
+      legendTitle.textContent="Assembly Constituencies";
+      updateBreadcrumb();
+      
+      // Small delay to ensure clearing is complete
+      setTimeout(() => {
+        const subset=filterChildrenSmart(acGJ,orgF,KEYS.org);
+        const layer=L.geoJSON(subset,{
+          style:f=>({color:"#111",weight:1,fillColor:colorFor(prop(f,KEYS.ac)),fillOpacity:0.8}),
+          onEachFeature:(f,l)=>l.on('click',()=>showMandals(f))
+        }).addTo(map);
+        currentLayer = layer; // Store reference for responsive updates
+        safeFit(layer);
+        buildLegend([...new Set(subset.features.map(f=>prop(f,KEYS.ac)))]);
+        
+        // Add labels after layer is added and fitted
+        setTimeout(() => {
+          addLabels(layer, KEYS.ac, 'lbl-ac');
+        }, 100);
+        
+        // Notify parent of context change
+        if (window.parent !== window) {
+          window.parent.postMessage({
+            type: 'map-navigation',
+            action: 'context-change',
+            context: { 
+              level: 'acs', 
+              zone: prop(ctx.zone, KEYS.zone) || '', 
+              org: prop(orgF, KEYS.org) || '', 
+              ac: '' 
+            }
+          }, '*');
+        }
+      }, 50);
     }
 
     // UPDATED showMandals function with proper mandal grouping
     function showMandals(acF){
-      clearLayers(); clearLabels(); ctx.level='mandals'; ctx.ac=acF; ctx.mandal=null;
-      const acName = prop(acF, KEYS.ac);
-      titleEl.textContent=`Kerala — ${prop(ctx.zone,KEYS.zone)} — ${prop(ctx.org,KEYS.org)} — ${acName} — Mandals`;
-      legendTitle.textContent="Mandals";
-
-      const LABEL_KEY="__label"; // Use a temporary key for consistent labeling
-      let subsetFeatures = [];
-      let missed = [];
-      let labelByNorm = {};
-
-      const acKey = resolveACKey(acName);
-      if (acKey){
-        const mapped = AC_TO_MANDALS.get(acKey);
-        const r = featuresForMappedMandals([...mapped]);
-        subsetFeatures = r.hits;
-        missed = r.missed;
-        labelByNorm = r.labelByNorm || {};
-      }
-      // Fallback to spatial query if mapping fails
-      if (!subsetFeatures.length) {
-        subsetFeatures = mandalGJ.features.filter(f=>{
-          try { return turf.booleanPointInPolygon(turf.pointOnFeature(f), acF); }
-          catch(e){ return false; }
-        });
-      }
-
-      // GROUP PANCHAYATS BY MANDAL to create unified boundaries
-      const mandalGroups = new Map();
+      // Clear existing layers and labels
+      clearLayers(); 
+      clearLabels(); 
       
-      subsetFeatures.forEach(f => {
-        const mandalName = prop(f, KEYS.mnd) || prop(f, 'ORG_MANDAL');
-        if (!mandalName) return;
-        
-        if (!mandalGroups.has(mandalName)) {
-          mandalGroups.set(mandalName, {
-            features: [],
-            properties: f.properties,
-            mandalName: mandalName
+      // Update context
+      ctx.level='mandals'; 
+      ctx.ac=prop(acF, KEYS.ac); 
+      ctx.mandal=null;
+      const acName = prop(acF, KEYS.ac);
+      titleEl.textContent=`Kerala — ${ctx.zone} — ${ctx.org} — ${acName} — Mandals`;
+      legendTitle.textContent="Mandals";
+      updateBreadcrumb();
+
+      // Small delay to ensure clearing is complete
+      setTimeout(() => {
+        const LABEL_KEY="__label"; // Use a temporary key for consistent labeling
+        let subsetFeatures = [];
+        let missed = [];
+        let labelByNorm = {};
+
+        const acKey = resolveACKey(acName);
+        if (acKey){
+          const mapped = AC_TO_MANDALS.get(acKey);
+          const r = featuresForMappedMandals([...mapped]);
+          subsetFeatures = r.hits;
+          missed = r.missed;
+          labelByNorm = r.labelByNorm || {};
+        }
+        // Fallback to spatial query if mapping fails
+        if (!subsetFeatures.length) {
+          subsetFeatures = mandalGJ.features.filter(f=>{
+            try { return turf.booleanPointInPolygon(turf.pointOnFeature(f), acF); }
+            catch(e){ return false; }
           });
         }
-        mandalGroups.get(mandalName).features.push(f);
-      });
 
-      // Create unified mandal features by merging panchayat polygons
-      const unifiedFeatures = [];
-      
-      mandalGroups.forEach((group, mandalName) => {
-        try {
-          // Create a union of all panchayat polygons in this mandal
-          let unionGeometry = group.features[0].geometry;
+        // GROUP PANCHAYATS BY MANDAL to create unified boundaries
+        const mandalGroups = new Map();
+        
+        subsetFeatures.forEach(f => {
+          const mandalName = prop(f, KEYS.mnd) || prop(f, 'ORG_MANDAL');
+          if (!mandalName) return;
           
-          // If there are multiple panchayats, union them
-          if (group.features.length > 1) {
-            for (let i = 1; i < group.features.length; i++) {
-              try {
-                unionGeometry = turf.union(
-                  { type: 'Feature', geometry: unionGeometry },
-                  group.features[i]
-                ).geometry;
-              } catch (e) {
-                console.warn(`Failed to union ${mandalName} panchayats:`, e);
-                // Fallback: use MultiPolygon
-                if (unionGeometry.type === 'Polygon') {
-                  unionGeometry = {
-                    type: 'MultiPolygon',
-                    coordinates: [unionGeometry.coordinates]
-                  };
-                }
-                if (group.features[i].geometry.type === 'Polygon') {
-                  unionGeometry.coordinates.push(group.features[i].geometry.coordinates);
-                } else if (group.features[i].geometry.type === 'MultiPolygon') {
-                  unionGeometry.coordinates.push(...group.features[i].geometry.coordinates);
+          if (!mandalGroups.has(mandalName)) {
+            mandalGroups.set(mandalName, {
+              features: [],
+              properties: f.properties,
+              mandalName: mandalName
+            });
+          }
+          mandalGroups.get(mandalName).features.push(f);
+        });
+
+        // Create unified mandal features by merging panchayat polygons
+        const unifiedFeatures = [];
+        
+        mandalGroups.forEach((group, mandalName) => {
+          try {
+            // Create a union of all panchayat polygons in this mandal
+            let unionGeometry = group.features[0].geometry;
+            
+            // If there are multiple panchayats, union them
+            if (group.features.length > 1) {
+              for (let i = 1; i < group.features.length; i++) {
+                try {
+                  unionGeometry = turf.union(
+                    { type: 'Feature', geometry: unionGeometry },
+                    group.features[i]
+                  ).geometry;
+                } catch (e) {
+                  console.warn(`Failed to union ${mandalName} panchayats:`, e);
+                  // Fallback: use MultiPolygon
+                  if (unionGeometry.type === 'Polygon') {
+                    unionGeometry = {
+                      type: 'MultiPolygon',
+                      coordinates: [unionGeometry.coordinates]
+                    };
+                  }
+                  if (group.features[i].geometry.type === 'Polygon') {
+                    unionGeometry.coordinates.push(group.features[i].geometry.coordinates);
+                  } else if (group.features[i].geometry.type === 'MultiPolygon') {
+                    unionGeometry.coordinates.push(...group.features[i].geometry.coordinates);
+                  }
                 }
               }
             }
-          }
 
-          // Create unified mandal feature
-          const unifiedFeature = {
-            type: 'Feature',
-            properties: {
-              ...group.properties,
-              [LABEL_KEY]: mandalName,
-              [KEYS.mnd]: mandalName,
-              panchayat_count: group.features.length
-            },
-            geometry: unionGeometry
-          };
-          
-          unifiedFeatures.push(unifiedFeature);
-          console.log(`✅ Created unified ${mandalName} mandal from ${group.features.length} panchayats`);
-          
-        } catch (e) {
-          console.error(`Failed to create unified mandal for ${mandalName}:`, e);
-          // Fallback: add individual features
-          group.features.forEach(f => {
-            unifiedFeatures.push({
-              ...f,
-              properties: { ...f.properties, [LABEL_KEY]: mandalName }
+            // Create unified mandal feature
+            const unifiedFeature = {
+              type: 'Feature',
+              properties: {
+                ...group.properties,
+                [LABEL_KEY]: mandalName,
+                [KEYS.mnd]: mandalName,
+                panchayat_count: group.features.length
+              },
+              geometry: unionGeometry
+            };
+            
+            unifiedFeatures.push(unifiedFeature);
+            console.log(`✅ Created unified ${mandalName} mandal from ${group.features.length} panchayats`);
+            
+          } catch (e) {
+            console.error(`Failed to create unified mandal for ${mandalName}:`, e);
+            // Fallback: add individual features
+            group.features.forEach(f => {
+              unifiedFeatures.push({
+                ...f,
+                properties: { ...f.properties, [LABEL_KEY]: mandalName }
+              });
             });
-          });
-        }
-      });
-
-      const subset = { type:"FeatureCollection", features: unifiedFeatures };
-      const layer=L.geoJSON(subset,{
-        style:f=>({color:"#111",weight:1,fillColor:colorFor(prop(f,LABEL_KEY)),fillOpacity:0.8}),
-        onEachFeature:(f,l)=>{
-          const mName = prop(f, LABEL_KEY);
-          // Your hybrid logic: check if the mandal name should lead to wards or panchayats
-          if (WARD_MANDALS.includes(mName)) {
-            l.on('click',()=>showWards(f));
-          } else {
-            l.on('click',()=>showPanchayats(f));
           }
-        }
-      }).addTo(map);
+        });
 
-      safeFit(layer);
-      buildLegend([...new Set(subset.features.map(f=>prop(f,LABEL_KEY)))]);
-      addLabels(layer, LABEL_KEY, 'lbl-mandal');
-
-      // Display warning note if needed
-      legendNote.textContent =
-        (!acKey) ? 'Note: AC name not found in mapping; showing spatially contained mandals.'
-        : (missed.length ? `Note: not found by name (≥${Math.round(FUZZY*100)}%): ${missed.join(', ')}.` : '');
-      
-      // Notify parent of context change
-      if (window.parent !== window) {
-        window.parent.postMessage({
-          type: 'map-navigation',
-          action: 'context-change',
-          context: { 
-            level: 'mandals', 
-            zone: prop(ctx.zone, KEYS.zone) || '', 
-            org: prop(ctx.org, KEYS.org) || '', 
-            ac: prop(acF, KEYS.ac) || '' 
+        const subset = { type:"FeatureCollection", features: unifiedFeatures };
+        const layer=L.geoJSON(subset,{
+          style:f=>({color:"#111",weight:1,fillColor:colorFor(prop(f,LABEL_KEY)),fillOpacity:0.8}),
+          onEachFeature:(f,l)=>{
+            const mName = prop(f, LABEL_KEY);
+            // Your hybrid logic: check if the mandal name should lead to wards or panchayats
+            if (WARD_MANDALS.includes(mName)) {
+              l.on('click',()=>showWards(f));
+            } else {
+              l.on('click',()=>showPanchayats(f));
+            }
           }
-        }, '*');
-      }
+        }).addTo(map);
+        currentLayer = layer; // Store reference for responsive updates
+
+        safeFit(layer);
+        buildLegend([...new Set(subset.features.map(f=>prop(f,LABEL_KEY)))]);
+        
+        // Add labels after layer is added and fitted
+        setTimeout(() => {
+          addLabels(layer, LABEL_KEY, 'lbl-mandal');
+        }, 100);
+
+        // Display warning note if needed
+        legendNote.textContent =
+          (!acKey) ? 'Note: AC name not found in mapping; showing spatially contained mandals.'
+          : (missed.length ? `Note: not found by name (≥${Math.round(FUZZY*100)}%): ${missed.join(', ')}.` : '');
+        
+        // Notify parent of context change
+        if (window.parent !== window) {
+          window.parent.postMessage({
+            type: 'map-navigation',
+            action: 'context-change',
+            context: { 
+              level: 'mandals', 
+              zone: prop(ctx.zone, KEYS.zone) || '', 
+              org: prop(ctx.org, KEYS.org) || '', 
+              ac: prop(acF, KEYS.ac) || '' 
+            }
+          }, '*');
+        }
+      }, 50);
     }
 
     function showPanchayats(mF){
-      clearLayers(); clearLabels(); ctx.level='panchayats'; ctx.mandal=mF;
+      // Clear existing layers and labels
+      clearLayers(); 
+      clearLabels(); 
+      
+      // Update context
+      ctx.level='panchayats'; 
+      ctx.mandal=prop(mF,"__label") || prop(mF, KEYS.mnd);
       const mName = prop(mF,"__label") || prop(mF, KEYS.mnd); // Use consistent label
-      titleEl.textContent=`Kerala — ${prop(ctx.zone,KEYS.zone)} — ${prop(ctx.org,KEYS.org)} — ${prop(ctx.ac,KEYS.ac)} — ${mName} — Panchayats`;
+      titleEl.textContent=`Kerala — ${ctx.zone} — ${ctx.org} — ${ctx.ac} — ${mName} — Panchayats`;
       legendTitle.textContent="Panchayats";
+      updateBreadcrumb();
 
-      const panMandalKey = KEYS.pan_mnd;
-      let subset = {type:"FeatureCollection", features:[]};
+      // Small delay to ensure clearing is complete
+      setTimeout(() => {
+        const panMandalKey = KEYS.pan_mnd;
+        let subset = {type:"FeatureCollection", features:[]};
 
-      // Prioritize name matching from tagged panchayat file
-      if (panMandalKey){
-        const target = norm(mName);
-        subset.features = panGJ.features.filter(f => {
-          const mandalValue = prop(f, panMandalKey);
-          return mandalValue && norm(mandalValue) === target;
+        // Prioritize name matching from tagged panchayat file
+        if (panMandalKey){
+          const target = norm(mName);
+          subset.features = panGJ.features.filter(f => {
+            const mandalValue = prop(f, panMandalKey);
+            return mandalValue && norm(mandalValue) === target;
+          });
+        }
+        
+        // Always add spatial filtering to catch panchayats with empty/missing mandal tags
+        const spatialFeatures = panGJ.features.filter(f=>{
+          try{ 
+            // Skip if already found by name matching
+            if (subset.features.some(existing => prop(existing, 'name') === prop(f, 'name'))) {
+              return false;
+            }
+            return turf.booleanPointInPolygon(turf.pointOnFeature(f), mF); 
+          }catch(e){return false;}
         });
-      }
-      
-      // Always add spatial filtering to catch panchayats with empty/missing mandal tags
-      const spatialFeatures = panGJ.features.filter(f=>{
-        try{ 
-          // Skip if already found by name matching
-          if (subset.features.some(existing => prop(existing, 'name') === prop(f, 'name'))) {
-            return false;
-          }
-          return turf.booleanPointInPolygon(turf.pointOnFeature(f), mF); 
-        }catch(e){return false;}
-      });
-      
-      // Combine name-matched and spatially-matched features
-      subset.features = [...subset.features, ...spatialFeatures];
+        
+        // Combine name-matched and spatially-matched features
+        subset.features = [...subset.features, ...spatialFeatures];
 
       const layer=L.geoJSON(subset,{
         style:f=>({color:"#111",weight:1,fillColor:colorFor(prop(f,KEYS.pan)),fillOpacity:0.8}),
@@ -1802,9 +2378,14 @@ Trikkarippur,Neeleshwaram
           });
         }
       }).addTo(map);
+      currentLayer = layer; // Store reference for responsive updates
       safeFit(layer);
       buildLegend([...new Set(subset.features.map(f=>prop(f,KEYS.pan)))]);
-      addLabels(layer, KEYS.pan, 'lbl-pan');
+      
+      // Add labels after layer is added and fitted
+      setTimeout(() => {
+        addLabels(layer, KEYS.pan, 'lbl-pan');
+      }, 100);
       
       // Apply target styling with blinking animations
       applyTargetStyling(layer);
@@ -1826,6 +2407,7 @@ Trikkarippur,Neeleshwaram
           }
         }, '*');
       }
+      }, 50);
     }
 
     function showWards(mF){
@@ -1990,6 +2572,7 @@ Trikkarippur,Neeleshwaram
           });
         }
       }).addTo(map);
+      currentLayer = layer; // Store reference for responsive updates
       safeFit(layer);
       buildLegend([...new Set(subset.features.map(f=>prop(f,KEYS.ward)))]);
       addLabels(layer, KEYS.ward, 'lbl-pan');
@@ -2422,6 +3005,20 @@ Trikkarippur,Neeleshwaram
     }
     backBtn.onclick = goBack;
     homeBtn.onclick = ()=>showZones();
+    
+    // Add zoom controls functionality
+    const zoomInBtn = document.getElementById('zoomInBtn');
+    const zoomOutBtn = document.getElementById('zoomOutBtn');
+    
+    zoomInBtn.onclick = () => {
+      const currentZoom = map.getZoom();
+      map.setZoom(currentZoom + 1);
+    };
+    
+    zoomOutBtn.onclick = () => {
+      const currentZoom = map.getZoom();
+      map.setZoom(currentZoom - 1);
+    };
 
     // ========= VOTER DATA LOADING =========
     async function loadVoterData() {
@@ -2596,9 +3193,36 @@ Trikkarippur,Neeleshwaram
       KEYS.pan_mnd  = detectKey(panGJ, ["MANDAL","Mandal","Org_Mandal","OrgMandal","mandal","org_mandal","Mandal_Name","ORG_MANDAL"]);
       KEYS.ward     = detectKey(wardGJ, ["Ward_Name","Ward","WARD","name"]);
 
+      console.log('🔍 Detected field keys:', KEYS);
+      console.log('🗺️ Sample zone feature:', zonesGJ?.features?.[0]?.properties || 'No zone features');
+
       buildMandalIndex(); // Crucial step
+      console.log('🚀 Starting with zones...');
       showZones();
     })();
+    
+    // Add resize listener to refresh labels on screen size change
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        // Refresh labels with new responsive sizing
+        if (currentLayer) {
+          clearLabels();
+          if (ctx.level === 'zones') {
+            addLabels(currentLayer, KEYS.zone, 'lbl-zone');
+          } else if (ctx.level === 'orgs') {
+            addLabels(currentLayer, KEYS.org, 'lbl-org');
+          } else if (ctx.level === 'acs') {
+            addLabels(currentLayer, KEYS.ac, 'lbl-ac');
+          } else if (ctx.level === 'mandals') {
+            addLabels(currentLayer, KEYS.mandal, 'lbl-mandal');
+          } else if (ctx.level === 'panchayats' || ctx.level === 'wards') {
+            addLabels(currentLayer, KEYS.lb, 'lbl-pan');
+          }
+        }
+      }, 250); // Debounce resize events
+    });
   </script>
 </body>
 </html>

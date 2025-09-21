@@ -1011,7 +1011,11 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
   return (
     <div 
       id="integrated-map-container"
-      className={`relative w-full bg-gradient-primary ${isFullscreen ? 'h-screen' : 'h-full'} overflow-hidden`}
+      className={`relative w-full bg-gradient-primary ${isFullscreen ? 'fixed inset-0 z-50' : 'h-full'} overflow-hidden`}
+      style={{
+        height: isFullscreen ? '100vh' : 'calc(100vh - 64px)',
+        top: isFullscreen ? 0 : undefined
+      }}
     >
       {/* Floating Background Elements - Matching Dashboard Theme */}
       <div className="floating-bg floating-bg-1"></div>
@@ -1037,7 +1041,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
       {/* Loading Indicator */}
       {isLoading && (
         <div 
-          className="fixed inset-0 bg-gradient-primary flex items-center justify-center"
+          className="absolute inset-0 bg-gradient-primary flex items-center justify-center"
           style={{ 
             zIndex: 60, // Use loadingOverlay z-index
             marginLeft: mobileInfo.isMobile ? '0' : isControlPanelCollapsed ? '4rem' : '20rem'

@@ -1119,3 +1119,77 @@ select {
 .navigation-active * {
   scroll-behavior: auto !important;
 }
+
+/* Professional UI Improvements */
+/* Prevent overlapping and ensure proper layering */
+.navigation-container {
+  position: relative;
+  z-index: var(--z-navigation);
+}
+
+/* Smooth transitions for professional feel */
+.professional-transition {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Enhanced backdrop blur for glass effect */
+.glass-effect {
+  backdrop-filter: blur(16px) saturate(180%);
+  background-color: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Professional shadows */
+.professional-shadow {
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+/* Enhanced focus states for accessibility */
+.professional-focus:focus {
+  outline: 2px solid #60A5FA;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+}
+
+/* Better mobile touch targets */
+.mobile-touch-target {
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Prevent layout shift on navigation */
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* Ensure proper content spacing */
+.main-content-wrapper {
+  padding-top: 64px; /* Height of navigation bar */
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Professional button styles */
+.btn-professional {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  border-radius: 0.75rem;
+}
+
+.btn-professional:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.btn-professional:active {
+  transform: translateY(0);
+}
