@@ -1,6 +1,6 @@
 import React from 'react';
 import Modal from './Modal';
-import { Phone, Mail, MapPin, User, Loader2 } from 'lucide-react';
+import { Phone, User } from 'lucide-react';
 import { LoadingIndicator } from './LoadingIndicator';
 import { ErrorDisplay } from './ErrorBoundary';
 
@@ -72,127 +72,131 @@ const LeadershipModal: React.FC<LeadershipModalProps> = ({
     </div>
   );
 
-  // Contact card component with improved hierarchy
-  const ContactCard = ({ contact, index }: { contact: ContactInfo; index: number }) => (
-    <article 
-      className="ds-card hover:bg-slate-800/70 ds-transition-base"
-      aria-labelledby={`contact-${index}-name`}
-    >
-      {/* Contact Header with Clear Hierarchy */}
-      <header className="mb-6">
-        <h3 
-          id={`contact-${index}-name`}
-          className="ds-text-heading-2 text-slate-100 mb-2"
-        >
-          {contact.name}
-        </h3>
-        {contact.position && (
-          <p className="ds-text-body-large text-blue-400 font-medium mb-1">
-            {contact.position}
-          </p>
-        )}
-        {contact.area && (
-          <p className="ds-text-small text-slate-400">
-            {contact.area}
-          </p>
-        )}
-      </header>
-
-      {/* Contact Details with Improved Spacing */}
-      <div className="ds-grid ds-gap-md sm:grid-cols-2 mb-6">
-        {/* Phone */}
-        {contact.phone && (
-          <div className="flex items-center ds-gap-md ds-p-md bg-slate-900/50 ds-rounded-base">
-            <div className="flex-shrink-0">
-              <Phone className="w-5 h-5 text-green-400" aria-hidden="true" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="ds-text-caption text-slate-400 uppercase tracking-wide mb-1">
-                Phone
-              </p>
-              <a 
-                href={`tel:${contact.phone}`}
-                className="ds-text-small text-slate-200 hover:text-green-400 ds-transition-base break-all ds-focus-ring"
-                aria-label={`Call ${contact.name} at ${contact.phone}`}
-              >
-                {contact.phone}
-              </a>
-            </div>
+  // Contact table component matching the original design with support for different levels
+  const ContactTable = () => {
+    const level = title.toLowerCase();
+    const isZoneLevel = level.includes('zone leadership');
+    const isMandalLevel = level.includes('mandal contacts');
+    const isLocalBodyLevel = level.includes('local body contacts');
+    
+    return (
+      <div className="ds-p-lg">
+        {/* Info header */}
+        <div className="mb-6 p-4 bg-green-900/20 border border-green-500/30 rounded-lg flex items-center gap-3">
+          <Phone className="w-5 h-5 text-green-400" />
+          <div>
+            <p className="text-green-300 font-medium">Contact Information:</p>
+            <p className="text-slate-300 text-sm">
+              {isZoneLevel ? 'Zone-level leadership contacts' :
+               isMandalLevel ? 'Mandal-level contacts' :
+               isLocalBodyLevel ? 'Local body contacts' :
+               'Leadership contacts'}
+            </p>
           </div>
-        )}
+        </div>
 
-        {/* Email */}
-        {contact.email && (
-          <div className="flex items-center ds-gap-md ds-p-md bg-slate-900/50 ds-rounded-base">
-            <div className="flex-shrink-0">
-              <Mail className="w-5 h-5 text-blue-400" aria-hidden="true" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="ds-text-caption text-slate-400 uppercase tracking-wide mb-1">
-                Email
-              </p>
-              <a 
-                href={`mailto:${contact.email}`}
-                className="ds-text-small text-slate-200 hover:text-blue-400 ds-transition-base break-all ds-focus-ring"
-                aria-label={`Email ${contact.name} at ${contact.email}`}
-              >
-                {contact.email}
-              </a>
-            </div>
-          </div>
-        )}
-
-        {/* Address */}
-        {contact.address && (
-          <div className="flex items-start ds-gap-md ds-p-md bg-slate-900/50 ds-rounded-base sm:col-span-2">
-            <div className="flex-shrink-0 mt-1">
-              <MapPin className="w-5 h-5 text-amber-400" aria-hidden="true" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="ds-text-caption text-slate-400 uppercase tracking-wide mb-1">
-                Address
-              </p>
-              <address className="ds-text-small text-slate-200 leading-relaxed not-italic">
-                {contact.address}
-              </address>
-            </div>
-          </div>
-        )}
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-slate-600">
+                <th className="text-left py-3 px-4 text-slate-300 font-medium uppercase tracking-wide text-sm">
+                  {isZoneLevel ? 'ZONES' : 
+                   isMandalLevel ? 'MANDALS' :
+                   isLocalBodyLevel ? 'LOCAL BODIES' : 'NAME'}
+                </th>
+                <th className="text-left py-3 px-4 text-slate-300 font-medium uppercase tracking-wide text-sm">
+                  PRIMARY CONTACT
+                </th>
+                <th className="text-left py-3 px-4 text-slate-300 font-medium uppercase tracking-wide text-sm">
+                  PHONE
+                </th>
+                <th className="text-left py-3 px-4 text-slate-300 font-medium uppercase tracking-wide text-sm">
+                  SECONDARY CONTACT
+                </th>
+                <th className="text-left py-3 px-4 text-slate-300 font-medium uppercase tracking-wide text-sm">
+                  PHONE
+                </th>
+                {isLocalBodyLevel && (
+                  <>
+                    <th className="text-left py-3 px-4 text-slate-300 font-medium uppercase tracking-wide text-sm">
+                      SECRETARY
+                    </th>
+                    <th className="text-left py-3 px-4 text-slate-300 font-medium uppercase tracking-wide text-sm">
+                      PHONE
+                    </th>
+                  </>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {contacts.map((contact: any, index) => (
+                <tr key={index} className="border-b border-slate-700/50 hover:bg-slate-800/30 transition-colors">
+                  <td className="py-4 px-4 text-slate-200 font-medium">
+                    {contact.name}
+                    {contact.type && (
+                      <div className="text-xs text-slate-400 mt-1">
+                        {contact.type}
+                      </div>
+                    )}
+                  </td>
+                  <td className="py-4 px-4 text-slate-300">
+                    {contact.presidentName || contact.name || 'N/A'}
+                  </td>
+                  <td className="py-4 px-4">
+                    {(contact.presidentPhone || contact.phone) && (contact.presidentPhone || contact.phone) !== 'N/A' ? (
+                      <a 
+                        href={`tel:${contact.presidentPhone || contact.phone}`}
+                        className="text-blue-400 hover:text-blue-300 transition-colors"
+                      >
+                        {contact.presidentPhone || contact.phone}
+                      </a>
+                    ) : (
+                      <span className="text-slate-500">N/A</span>
+                    )}
+                  </td>
+                  <td className="py-4 px-4 text-slate-300">
+                    {contact.inchargeName || 'Incharge'}
+                  </td>
+                  <td className="py-4 px-4">
+                    {contact.inchargePhone && contact.inchargePhone !== 'N/A' ? (
+                      <a 
+                        href={`tel:${contact.inchargePhone}`}
+                        className="text-orange-400 hover:text-orange-300 transition-colors"
+                      >
+                        {contact.inchargePhone}
+                      </a>
+                    ) : (
+                      <span className="text-slate-500">N/A</span>
+                    )}
+                  </td>
+                  {isLocalBodyLevel && (
+                    <>
+                      <td className="py-4 px-4 text-slate-300">
+                        {contact.secretaryName || 'N/A'}
+                      </td>
+                      <td className="py-4 px-4">
+                        {contact.secretaryPhone && contact.secretaryPhone !== 'N/A' ? (
+                          <a 
+                            href={`tel:${contact.secretaryPhone}`}
+                            className="text-green-400 hover:text-green-300 transition-colors"
+                          >
+                            {contact.secretaryPhone}
+                          </a>
+                        ) : (
+                          <span className="text-slate-500">N/A</span>
+                        )}
+                      </td>
+                    </>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-
-      {/* Action Buttons with Touch Targets */}
-      <footer className="flex flex-wrap ds-gap-sm pt-4 border-t border-slate-700/50">
-        {contact.phone && (
-          <a
-            href={`tel:${contact.phone}`}
-            className="
-              ds-touch-target inline-flex items-center ds-gap-sm ds-p-md ds-text-small
-              bg-green-600/20 text-green-400 ds-rounded-base
-              hover:bg-green-600/30 ds-transition-base ds-focus-ring
-            "
-            aria-label={`Call ${contact.name}`}
-          >
-            <Phone className="w-4 h-4" aria-hidden="true" />
-            Call
-          </a>
-        )}
-        {contact.email && (
-          <a
-            href={`mailto:${contact.email}`}
-            className="
-              ds-touch-target inline-flex items-center ds-gap-sm ds-p-md ds-text-small
-              bg-blue-600/20 text-blue-400 ds-rounded-base
-              hover:bg-blue-600/30 ds-transition-base ds-focus-ring
-            "
-            aria-label={`Email ${contact.name}`}
-          >
-            <Mail className="w-4 h-4" aria-hidden="true" />
-            Email
-          </a>
-        )}
-      </footer>
-    </article>
-  );
+    );
+  };
 
   return (
     <Modal
@@ -215,13 +219,7 @@ const LeadershipModal: React.FC<LeadershipModalProps> = ({
       ) : contacts.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="ds-p-lg">
-          <div className="ds-grid ds-gap-lg">
-            {contacts.map((contact, index) => (
-              <ContactCard key={index} contact={contact} index={index} />
-            ))}
-          </div>
-        </div>
+        <ContactTable />
       )}
     </Modal>
   );

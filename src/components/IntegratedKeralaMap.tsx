@@ -706,16 +706,48 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
   // Transform contact data for the new modal component
   const getTransformedContactData = () => {
     const rawData = getContactData();
-    if (!Array.isArray(rawData)) return [];
+    console.log('🔄 Transforming contact data. Raw data:', rawData);
+    
+    if (!Array.isArray(rawData)) {
+      console.warn('⚠️ Raw data is not an array:', typeof rawData, rawData);
+      return [];
+    }
 
-    return rawData.map((contact: any) => ({
+    // For zone level, return the data in the format expected by the table
+    if (currentMapContext.level === 'zones') {
+      return rawData.map((contact: any) => ({
+        name: contact.name,
+        inchargeName: contact.inchargeName,
+        inchargePhone: contact.inchargePhone,
+        presidentName: contact.presidentName,
+        presidentPhone: contact.presidentPhone,
+        position: 'Zone',
+        phone: contact.inchargePhone,
+        email: contact.email,
+        address: contact.address,
+        area: contact.area
+      }));
+    }
+
+    // For mandal level and local body level, transform based on their structure
+    const transformed = rawData.map((contact: any) => ({
       name: contact.name,
-      position: contact.inchargeName ? 'Incharge' : contact.presidentName ? 'President' : undefined,
-      phone: contact.inchargePhone || contact.presidentPhone || contact.president?.phone || contact.prabhari?.phone,
+      inchargeName: contact.inchargeName,
+      inchargePhone: contact.inchargePhone,
+      presidentName: contact.presidentName,
+      presidentPhone: contact.presidentPhone,
+      secretaryName: contact.secretaryName,
+      secretaryPhone: contact.secretaryPhone,
+      type: contact.type,
+      position: contact.type || 'Contact',
+      phone: contact.presidentPhone || contact.inchargePhone,
       email: contact.email,
       address: contact.address,
       area: contact.area
     }));
+    
+    console.log('✅ Transformed contact data:', transformed);
+    return transformed;
   };
 
   // Function to get contact data based on current context
@@ -729,15 +761,15 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
     console.log('🔍 Getting contact data for context:', { level, zoneName, orgName, acName, mandalName });
 
     if (level === 'zones') {
-      // Hardcoded zone leadership data
+      // Zone leadership data - using only Incharge from org_districts_contacts.csv
       const zoneData = [
-        { name: "Thiruvananthapuram", inchargeName: "Shri.B.B Gopakumar", inchargePhone: "9447472265", presidentName: "Shri Mukkam Palamood Biju", presidentPhone: "9995358151" },
-        { name: "Alappuzha", inchargeName: "Shri.N.Hari", inchargePhone: "9446924053", presidentName: "Shri Sandeep Vachaspathy", presidentPhone: "9947576800" },
-        { name: "Ernakulam", inchargeName: "Shri.V.Unnikrishnan Master", inchargePhone: "9447630600", presidentName: "KS Shyju", presidentPhone: "9747473770" },
-        { name: "Palakkad", inchargeName: "Shri.K.Narayanan Master", inchargePhone: "9447004994", presidentName: "Prasanth Sivan", presidentPhone: "9037424212" },
-        { name: "Kozhikode", inchargeName: "Shri.O.Nidheesh", inchargePhone: "8075480152", presidentName: "CR Praful Krishnan", presidentPhone: "9745334700" },
+        { name: "Thiruvananthapuram", inchargeName: "Shri.B.B Gopakumar", inchargePhone: "9447472265", presidentName: "Zone Incharge", presidentPhone: "9447472265" },
+        { name: "Alappuzha", inchargeName: "Shri.N.Hari", inchargePhone: "9446924053", presidentName: "Zone Incharge", presidentPhone: "9446924053" },
+        { name: "Ernakulam", inchargeName: "Shri.V.Unnikrishnan Master", inchargePhone: "9447630600", presidentName: "Zone Incharge", presidentPhone: "9447630600" },
+        { name: "Palakkad", inchargeName: "Shri.K.Narayanan Master", inchargePhone: "9447004994", presidentName: "Zone Incharge", presidentPhone: "9447004994" },
+        { name: "Kozhikode", inchargeName: "Shri.O.Nidheesh", inchargePhone: "8075480152", presidentName: "Zone Incharge", presidentPhone: "8075480152" },
       ];
-      console.log('📞 Returning zone contact data:', zoneData);
+      console.log('📞 Returning zone contact data (ALWAYS AVAILABLE):', zoneData);
       return zoneData;
     } else if (level === 'orgs' && zoneName) {
       // Zone mapping for org districts
@@ -807,11 +839,26 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
     } else if (level === 'mandals' && acName) {
       const mandalContacts = getMandalContactData(zoneName, orgName);
       console.log('📞 Returning mandal contacts:', mandalContacts);
-      return mandalContacts;
+      return mandalContacts.map((mandal: any) => ({
+        name: mandal.name,
+        presidentName: mandal.president?.name || 'NA',
+        presidentPhone: mandal.president?.phone || 'NA',
+        inchargeName: mandal.prabhari?.name || 'NA',
+        inchargePhone: mandal.prabhari?.phone || 'NA'
+      }));
     } else if (level === 'panchayats' && mandalName) {
       const localBodyContacts = getLocalBodyContactData(zoneName, orgName, acName, mandalName);
       console.log('📞 Returning local body contacts:', localBodyContacts);
-      return localBodyContacts;
+      return localBodyContacts.map((localBody: any) => ({
+        name: localBody.name,
+        presidentName: localBody.president?.name || 'NA',
+        presidentPhone: localBody.president?.phone || 'NA',
+        inchargeName: localBody.incharge?.name || 'NA',
+        inchargePhone: localBody.incharge?.phone || 'NA',
+        secretaryName: localBody.secretary?.name || 'NA',
+        secretaryPhone: localBody.secretary?.phone || 'NA',
+        type: localBody.type || 'Panchayat'
+      }));
     }
     console.log('❌ No contacts found for context:', { level, zoneName, orgName, acName, mandalName });
     return [];
@@ -1168,8 +1215,14 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
     console.log('🚀 Opening leadership modal...');
     console.log('📍 Current map context:', currentMapContext);
     
+    // Log detailed state information
+    console.log('🗂️ Current orgDistrictContacts state:', orgDistrictContacts);
+    console.log('📊 orgDistrictContacts length:', orgDistrictContacts.length);
+    
     const contactData = getContactData();
     console.log('📞 Contact data retrieved:', contactData);
+    console.log('📞 Contact data length:', contactData.length);
+    console.log('📞 Contact data structure:', JSON.stringify(contactData, null, 2));
     
     setShowLeadershipModal(true);
 
@@ -1442,7 +1495,7 @@ const IntegratedKeralaMap: React.FC<IntegratedKeralaMapProps> = ({ onBack, onHom
       <LeadershipModal
         isOpen={showLeadershipModal}
         onClose={() => setShowLeadershipModal(false)}
-        contacts={getContactData()}
+        contacts={getTransformedContactData()}
         title={(() => {
           const level = currentMapContext.level;
           if (level === 'zones') return 'Zone Leadership';

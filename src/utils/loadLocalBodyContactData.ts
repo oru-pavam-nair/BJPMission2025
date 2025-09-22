@@ -56,16 +56,20 @@ export async function loadLocalBodyContactData(): Promise<LocalBodyContactData> 
   }
 
   try {
-    const response = await fetch('/data/contacts/Local Body Target - lb_contacts.csv');
+    console.log('🔄 Loading local body contacts from CSV...');
+    const response = await fetch('/data/contacts/local_body_contacts.csv');
     if (!response.ok) {
       throw new Error(`Failed to fetch local body contact data: ${response.statusText}`);
     }
     
     const csvText = await response.text();
-    const lines = csvText.split('\n').filter(line => line.trim());
+    console.log('📄 Local body CSV text loaded, length:', csvText.length);
     
-    // Skip header row (first line)
-    const dataLines = lines.slice(1);
+    const lines = csvText.split('\n').filter(line => line.trim());
+    console.log('📊 Local body CSV lines count:', lines.length);
+    
+    // Skip header rows (first 3 lines based on the structure you showed)
+    const dataLines = lines.slice(3);
     
     const data: LocalBodyContactData = {};
     let processedRows = 0;
@@ -74,26 +78,26 @@ export async function loadLocalBodyContactData(): Promise<LocalBodyContactData> 
     dataLines.forEach((line, index) => {
       const columns = line.split(',');
       
-      // Validate minimum column count
-      if (columns.length < 12) {
+      // Validate minimum column count (based on your CSV structure: Zone,Org District,AC,Org Mandal,Local Body Name,Panchayt/ Area President,Contact Number,Incharge,Contact Number,Co Incharge,Contact Number,General Secretary,Contact)
+      if (columns.length < 13) {
         skippedRows++;
         return;
       }
       
-      // Parse columns according to new structure
-      // Column positions: area in column 6 (index 5), duplicate "Contact Number" columns in positions 8 and 10 (indices 7 and 9)
+      // Parse columns according to your CSV structure
       const zone = cleanData(columns[0]);
       const orgDistrict = cleanData(columns[1]);
       const ac = cleanData(columns[2]);
       const mandal = cleanData(columns[3]);
       const localBodyName = cleanData(columns[4]);
-      const area = cleanData(columns[5]); // Column 6: Panchayat/Area/Cluster
-      const president = cleanData(columns[6]); // Column 7: Panchayat/ Area President
-      const presidentPhone = cleanData(columns[7]); // Column 8: Contact Number (President)
-      const incharge = cleanData(columns[8]); // Column 9: Incharge
-      const inchargePhone = cleanData(columns[9]); // Column 10: Contact Number (Incharge) - duplicate column name
-      const secretary = cleanData(columns[10]); // Column 11: General Secretary
-      const secretaryPhone = cleanData(columns[11]); // Column 12: Contact (Secretary)
+      const president = cleanData(columns[5]); // Panchayt/ Area President
+      const presidentPhone = cleanData(columns[6]); // Contact Number (for President)
+      const incharge = cleanData(columns[7]); // Incharge
+      const inchargePhone = cleanData(columns[8]); // Contact Number (for Incharge)
+      const coIncharge = cleanData(columns[9]); // Co Incharge
+      const coInchargePhone = cleanData(columns[10]); // Contact Number (for Co Incharge)
+      const secretary = cleanData(columns[11]); // General Secretary
+      const secretaryPhone = cleanData(columns[12]); // Contact (for Secretary)
       
       // Validate required fields
       if (!validateRequiredFields(zone, orgDistrict, ac, mandal, localBodyName)) {
@@ -124,10 +128,10 @@ export async function loadLocalBodyContactData(): Promise<LocalBodyContactData> 
         type = 'Corporation';
       }
       
-      // Add local body data - focusing only on President, Incharge, and General Secretary
+      // Add local body data
       data[zone][orgDistrict][ac][mandal].push({
         name: localBodyName,
-        area: area, // Panchayat/Area/Cluster information
+        area: '', // No area field in your CSV
         type: type,
         president: {
           name: president,
@@ -145,6 +149,8 @@ export async function loadLocalBodyContactData(): Promise<LocalBodyContactData> 
       
       processedRows++;
     });
+    
+    console.log(`✅ Local body contacts loaded: ${processedRows} rows processed, ${skippedRows} rows skipped`);
     
     // Only log if there are significant issues
     if (skippedRows > processedRows * 0.1) {

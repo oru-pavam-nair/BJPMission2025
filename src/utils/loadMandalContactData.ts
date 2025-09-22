@@ -30,18 +30,23 @@ export async function loadMandalContactData(): Promise<MandalContactData> {
   }
 
   try {
+    console.log('🔄 Loading mandal contacts from CSV...');
     const response = await fetch('/data/contacts/mandal_contacts.csv');
     if (!response.ok) {
       throw new Error(`Failed to fetch mandal contact data: ${response.statusText}`);
     }
     
     const csvText = await response.text();
+    console.log('📄 Mandal CSV text loaded, length:', csvText.length);
+    
     const lines = csvText.split('\n').filter(line => line.trim());
+    console.log('📊 Mandal CSV lines count:', lines.length);
     
     // Skip header rows (first 2 lines)
     const dataLines = lines.slice(2);
     
     const data: MandalContactData = {};
+    let processedRows = 0;
     
     dataLines.forEach(line => {
       const columns = line.split(',');
@@ -80,10 +85,13 @@ export async function loadMandalContactData(): Promise<MandalContactData> {
               phone: (prabhariPhone && prabhariPhone.trim() !== 'NA' && prabhariPhone.trim() !== '') ? prabhariPhone : 'NA'
             }
           });
+          
+          processedRows++;
         }
       }
     });
     
+    console.log(`✅ Mandal contacts loaded: ${processedRows} rows processed`);
     mandalContactDataCache = data;
 
     return data;
